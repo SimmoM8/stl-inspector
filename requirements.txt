@@ -1,2 +1,3 @@
+networkx==3.6
 numpy==2.3.5
 trimesh==4.10.0
