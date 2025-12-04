@@ -6,6 +6,92 @@ import sys
 import numpy as np
 import trimesh
 
+def build_face_adjacency(mesh):
+    """
+    Returns:
+      adjacency: dict of face_index -> list of neighboring face indices
+      shared_edges: dict of (faceA, faceB) -> (edge as tuple of vertex indices)
+    """
+    from collections import defaultdict
+    
+    # Map edge -> list of faces that touch it
+    edge_to_faces = defaultdict(list)
+
+    for face_idx, (a, b, c) in enumerate(mesh.faces):
+        edges = [
+            tuple(sorted((a, b))),
+            tuple(sorted((b, c))),
+            tuple(sorted((c, a))),
+        ]
+        for e in edges:
+            edge_to_faces[e].append(face_idx)
+
+    adjacency = defaultdict(list)
+    shared_edges = {}
+
+    for edge, faces in edge_to_faces.items():
+        if len(faces) == 2:  # only exactly 2 faces share this edge
+            f1, f2 = faces
+            adjacency[f1].append(f2)
+            adjacency[f2].append(f1)
+            shared_edges[(f1, f2)] = edge
+            shared_edges[(f2, f1)] = edge
+
+    return adjacency, shared_edges
+
+def detect_inconsistent_normals(mesh):
+    """
+    Returns a list of face indices whose orientation was inconsistent
+    relative to neighbors.
+    """
+    adjacency, shared_edges = build_face_adjacency(mesh)
+
+    num_faces = len(mesh.faces)
+
+    # Track orientation decisions:
+    visited = [False] * num_faces
+    flipped = [False] * num_faces  # whether face had to be flipped
+
+    from collections import deque
+    queue = deque()
+
+    # Start BFS at face 0
+    queue.append(0)
+    visited[0] = True
+
+    # Work with a mutable copy of faces so we can flip them internally
+    faces = mesh.faces.copy()
+
+    def is_edge_reversed(face, edge):
+        """Return True if this face uses the shared edge in reversed order."""
+        (a, b, c) = faces[face]
+        edges = [(a, b), (b, c), (c, a)]
+        return not any(tuple(e) == edge for e in edges)
+
+    while queue:
+        current = queue.popleft()
+
+        for nbr in adjacency[current]:
+            if not visited[nbr]:
+                edge = shared_edges[(current, nbr)]
+
+                # Check if neighbor is reversed relative to current
+                # i.e., it uses the edge backwards
+                if is_edge_reversed(nbr, edge):
+                    # Mark as flipped
+                    flipped[nbr] = True
+
+                    # Flip vertex order: (a,b,c) -> (a,c,b)
+                    a, b, c = faces[nbr]
+                    faces[nbr] = (a, c, b)
+
+                visited[nbr] = True
+                queue.append(nbr)
+
+    # Output indices where we had to flip
+    inconsistent_faces = [i for i, f in enumerate(flipped) if f]
+
+    return inconsistent_faces
 
 def analyze_mesh(mesh: trimesh.Trimesh) -> dict:
     """
@@ -102,8 +188,23 @@ def analyze_mesh(mesh: trimesh.Trimesh) -> dict:
             "message": "Mesh is watertight"
         })
 
-    # NOTE: reversed / inconsistent normals detection will be added in a later step.
-    # For now we just report the basic topology faults.
+    # ---------- Inconsistent normals ----------
+    try:
+        inconsistent = detect_inconsistent_normals(mesh)
+        if inconsistent:
+            issues.append({
+                "type": "inconsistent_normals",
+                "severity": "warning",
+                "count": len(inconsistent),
+                "faces": inconsistent,
+                "message": f"{len(inconsistent)} faces have inconsistent orientation relative to neighbors"
+            })
+    except Exception as e:
+        issues.append({
+            "type": "normal_check_failed",
+            "severity": "info",
+            "message": f"Normal consistency check failed: {e}"
+        })
 
     result = {
         "summary": {
@@ -151,12 +252,12 @@ def main():
     parser = argparse.ArgumentParser(
         description="Analyze an STL file for common mesh issues."
     )
-    parser.add_argument("path", help="Path to the STL file")
+    parser.add_argument("path", help="Path to the STL file") # required positional argument string to specify the file path
     parser.add_argument(
         "--json",
         action="store_true",
         help="Output full JSON report instead of human-readable text"
-    )
+    ) # boolean flag to output JSON report -> true if --json is passed, false otherwise
 
     args = parser.parse_args()
 
