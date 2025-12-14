@@ -1,5 +1,10 @@
 import * as THREE from "three";
 import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+import * as BufferGeometryUtils from "https://unpkg.com/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js";
+import { EffectComposer } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/RenderPass.js";
+import { ShaderPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/ShaderPass.js";
+import { FXAAShader } from "https://unpkg.com/three@0.160.0/examples/jsm/shaders/FXAAShader.js";
 import { Line2 } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/Line2.js";
 import { LineMaterial } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineMaterial.js";
 import { LineGeometry } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineGeometry.js";
@@ -19,9 +24,21 @@ export function createViewer(container) {
     let baseVertexCount = 0;
     let faceIndexMap = null;   // Map original face index -> current face index (or null for identity)
     let vertexIndexMap = null; // Map original vertex index -> current vertex index (or null for identity)
+    let lastFaceList = null; // remember last applied component for settings refresh
+    const baseMeshColor = new THREE.Color(0xffffff);
+    const viewSettings = {
+        edgeThreshold: 12,
+        edgeMode: "feature", // feature | all | off
+        smoothShading: true,
+        wireframe: false,
+        xray: false,
+        grid: true,
+        axes: true,
+        exposure: 1.6,
+    };
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf2f2f2);
+    scene.background = new THREE.Color(0xf9fafc);
 
     // Helpers
     const axesHelper = new THREE.AxesHelper(1); // size will be updated after mesh loads
@@ -49,18 +66,27 @@ export function createViewer(container) {
     camera.position.set(0, 0, 3);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = viewSettings.exposure;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
 
+    const composer = new EffectComposer(renderer);
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+    const fxaaPass = new ShaderPass(FXAAShader);
+    composer.addPass(fxaaPass);
+
     // Simple lighting
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const dir1 = new THREE.DirectionalLight(0xffffff, 0.8);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+    const dir1 = new THREE.DirectionalLight(0xffffff, 1.1);
     dir1.position.set(5, 5, 5);
     scene.add(dir1);
 
     // Second light to reduce harsh shadows
-    const dir2 = new THREE.DirectionalLight(0xffffff, 0.4);
+    const dir2 = new THREE.DirectionalLight(0xffffff, 0.6);
     dir2.position.set(-5, -5, 3);
     scene.add(dir2);
 
@@ -75,6 +101,8 @@ export function createViewer(container) {
     controls.screenSpacePanning = true;
     desiredTarget.copy(controls.target);
     desiredCameraPos.copy(camera.position);
+    // Keep light neutral background for clarity
+    scene.background = new THREE.Color(0xf2f2f2);
 
     // Optional: constrain zoom distances once mesh is loaded
     // we’ll set min/max in setMeshFromApi after we know the bounding sphere
@@ -116,13 +144,33 @@ export function createViewer(container) {
             fMap.set(faceIndex, faceCounter);
         }
 
-        const geometry = new THREE.BufferGeometry();
+        let geometry = new THREE.BufferGeometry();
         geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
         geometry.setIndex(new THREE.BufferAttribute(remappedIndices, 1));
+
+        let newVertexMap = vMap;
+        if (viewSettings.smoothShading) {
+            // Weld close vertices before computing normals to smooth shading seams
+            geometry = BufferGeometryUtils.mergeVertices(geometry, 1e-5);
+            // Remap original vertices to merged indices
+            const idx = geometry.getIndex();
+            newVertexMap = new Map();
+            for (let faceCounter = 0; faceCounter < useFaces.length; faceCounter++) {
+                const faceIndex = useFaces[faceCounter];
+                const i0 = baseIndices[faceIndex * 3 + 0];
+                const i1 = baseIndices[faceIndex * 3 + 1];
+                const i2 = baseIndices[faceIndex * 3 + 2];
+                const base = faceCounter * 3;
+                newVertexMap.set(i0, idx.getX(base + 0));
+                newVertexMap.set(i1, idx.getX(base + 1));
+                newVertexMap.set(i2, idx.getX(base + 2));
+            }
+        }
+
         geometry.computeVertexNormals();
         geometry.computeBoundingBox();
         geometry.computeBoundingSphere();
-        return { geometry, faceMap: fMap, vertexMap: vMap };
+        return { geometry, faceMap: fMap, vertexMap: newVertexMap };
     }
 
     function fitHelpersAndCamera(geometry, mesh) {
@@ -155,15 +203,24 @@ export function createViewer(container) {
             currentMesh.remove(currentEdges);
             currentEdges.geometry.dispose();
             currentEdges.material.dispose();
+            currentEdges = null;
         }
-        const edgesGeom = new THREE.EdgesGeometry(currentMesh.geometry, 20);
-        const edgesMat = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.6 });
+
+        if (viewSettings.edgeMode === "off") return;
+
+        let threshold = viewSettings.edgeThreshold;
+        if (viewSettings.edgeMode === "all") threshold = 0.1;
+
+        const edgesGeom = new THREE.EdgesGeometry(currentMesh.geometry, threshold);
+        const edgesMat = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.95, color: 0x111827 });
         currentEdges = new THREE.LineSegments(edgesGeom, edgesMat);
+        currentEdges.renderOrder = 10;
         currentMesh.add(currentEdges);
     }
 
     function applyGeometry(faceList, refitCamera = true) {
         if (!basePositions || !baseIndices) return;
+        lastFaceList = faceList && faceList.length ? faceList.slice() : null;
         const { geometry, faceMap, vertexMap: vMap } = buildGeometryFromFaceList(faceList);
         const box = geometry.boundingBox;
         const minY = box.min.y;
@@ -172,6 +229,7 @@ export function createViewer(container) {
             const material = new THREE.MeshStandardMaterial({
                 metalness: 0.0,
                 roughness: 0.8,
+                color: baseMeshColor,
             });
             currentMesh = new THREE.Mesh(geometry, material);
             scene.add(currentMesh);
@@ -179,10 +237,12 @@ export function createViewer(container) {
             clearHighlights();
             currentMesh.geometry.dispose();
             currentMesh.geometry = geometry;
+            currentMesh.material.color.copy(baseMeshColor);
         }
 
         currentMesh.position.y = -minY;
         rebuildEdges();
+        applyMaterialSettings();
 
         faceIndexMap = faceList && faceList.length ? faceMap : null;
         vertexIndexMap = faceList && faceList.length ? vMap : null;
@@ -198,6 +258,17 @@ export function createViewer(container) {
             ground.scale.setScalar(r / 5);
             ground.position.y = 0;
         }
+    }
+
+    function applyMaterialSettings() {
+        if (!currentMesh) return;
+        currentMesh.material.wireframe = viewSettings.wireframe;
+        currentMesh.material.transparent = viewSettings.xray;
+        currentMesh.material.opacity = viewSettings.xray ? 0.4 : 1.0;
+        currentMesh.material.needsUpdate = true;
+
+        gridHelper.visible = viewSettings.grid;
+        axesHelper.visible = viewSettings.axes;
     }
 
     function setMeshFromApi(meshData) {
@@ -241,6 +312,9 @@ export function createViewer(container) {
         const h = container.clientHeight;
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setSize(w, h);
+        composer.setSize(w, h);
+        const ratio = renderer.getPixelRatio();
+        fxaaPass.material.uniforms["resolution"].value.set(1 / (w * ratio), 1 / (h * ratio));
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
         if (highlightLineMaterial) {
@@ -251,6 +325,7 @@ export function createViewer(container) {
         }
     }
     window.addEventListener("resize", onResize);
+    onResize();
 
     function stopFocusAnimation() {
         animatingFocus = false;
@@ -268,6 +343,7 @@ export function createViewer(container) {
 
     function animate() {
         requestAnimationFrame(animate);
+        renderer.toneMappingExposure = Math.max(0.2, viewSettings.exposure);
         if (animatingFocus) {
             camera.position.lerp(desiredCameraPos, 0.15);
             controls.target.lerp(desiredTarget, 0.18);
@@ -281,7 +357,7 @@ export function createViewer(container) {
             }
         }
         controls.update();
-        renderer.render(scene, camera);
+        composer.render();
     }
     animate();
 
@@ -539,6 +615,35 @@ export function createViewer(container) {
         showIssueAll(issue);
     }
 
+    function setViewSettings(partial) {
+        Object.assign(viewSettings, partial);
+        renderer.toneMappingExposure = Math.max(0.2, viewSettings.exposure);
+
+        if (partial.smoothShading !== undefined) {
+            applyGeometry(lastFaceList, false);
+        } else {
+            rebuildEdges();
+            applyMaterialSettings();
+        }
+    }
+
+    function getViewSettings() {
+        return { ...viewSettings };
+    }
+
+    function resetViewSettings() {
+        setViewSettings({
+            edgeThreshold: 20,
+            edgeMode: "feature",
+            smoothShading: true,
+            wireframe: false,
+            xray: false,
+            grid: true,
+            axes: true,
+            exposure: 1.0,
+        });
+    }
+
     return {
         setMeshFromApi,
         showIssue,
@@ -548,6 +653,9 @@ export function createViewer(container) {
         showAllComponents,
         clearHighlights,
         focusFace,
-        focusEdge
+        focusEdge,
+        setViewSettings,
+        getViewSettings,
+        resetViewSettings
     };
 }

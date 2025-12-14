@@ -13,173 +13,389 @@
     </script>
 
     <style>
+        :root {
+            --bg: #0f1628;
+            --bg-2: #0c1222;
+            --panel: #111a2f;
+            --panel-2: #0b1222;
+            --border: #1f2b45;
+            --muted: #97a3b8;
+            --text: #e9edf5;
+            --accent: #3b82f6;
+            --accent-soft: rgba(59, 130, 246, 0.16);
+            --card: #0f172a;
+        }
+        * { box-sizing: border-box; }
         body {
             margin: 0;
-            font-family: sans-serif;
-            display: flex;
+            font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
             height: 100vh;
+            display: flex;
+            background: linear-gradient(140deg, #0b1120 0%, #0c1324 45%, #0d1326 100%);
+            color: var(--text);
         }
+        h3, h4, h5 { margin: 0 0 6px 0; letter-spacing: 0.01em; }
 
-        #sidebar {
-            width: 300px;
-            padding: 12px;
-            border-right: 1px solid #ccc;
-            box-sizing: border-box;
+        .app {
+            display: grid;
+            grid-template-columns: 64px 320px 1fr;
+            width: 100%;
+            height: 100%;
+        }
+        .rail {
+            background: var(--panel-2);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px 6px;
+            gap: 8px;
+        }
+        .rail button {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            border: 1px solid transparent;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: grid;
+            place-items: center;
+            font-size: 18px;
+        }
+        .rail button:hover {
+            background: var(--accent-soft);
+            color: var(--text);
+            border-color: var(--border);
+        }
+        .rail button.active {
+            background: var(--accent);
+            color: #0b1226;
+            border-color: var(--accent);
+        }
+        .context {
+            background: var(--panel);
+            border-right: 1px solid var(--border);
+            padding: 14px;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
             gap: 12px;
         }
-
-        #viewer {
-            flex: 1;
+        .viewer-wrap {
+            position: relative;
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.05), transparent 40%),
+                        linear-gradient(135deg, #0b1120, #0b1226);
         }
+        #viewer { width: 100%; height: 100%; }
+
+        .card {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--card);
+            padding: 12px;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .summary-item {
+            padding: 10px;
+            border-radius: 10px;
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            font-size: 12px;
+        }
+        .summary-item .label { color: var(--muted); display: block; }
+        .summary-item .value { font-weight: 600; color: var(--text); }
+
+        .group {
+            margin-bottom: 8px;
+        }
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 8px 0;
+            color: var(--muted);
+            border-bottom: 1px solid var(--border);
+        }
+        .group-items { padding-top: 6px; }
+        .hidden { display: none; }
 
         #issues button, #componentsList button {
             display: block;
             width: 100%;
             text-align: left;
             margin: 6px 0;
-            padding: 8px;
-            border: 1px solid #ddd;
-            background: white;
+            padding: 10px;
+            border: 1px solid var(--border);
+            background: var(--panel-2);
+            color: var(--text);
             cursor: pointer;
-            border-radius: 4px;
-            transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+            border-radius: 10px;
+            transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
         }
-
-        #issues button:hover, #componentsList button:hover {
-            background: #f5f5f5;
-        }
-
+        #issues button:hover, #componentsList button:hover { background: #152038; transform: translateY(-1px); }
         #issues button.active, #componentsList button.active {
-            border-color: #2f7af0;
-            background: #e7f0ff;
-            box-shadow: 0 0 0 2px rgba(47, 122, 240, 0.2);
+            border-color: var(--accent);
+            background: var(--accent-soft);
+            box-shadow: 0 0 0 2px rgba(59,130,246,0.25);
         }
 
         #issueDetails {
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            padding: 10px;
-            background: #fafafa;
-            min-height: 110px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            background: var(--panel-2);
+            min-height: 130px;
         }
+        #issueDetails .meta { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+        #issueDetails .indices { font-size: 12px; color: var(--text); white-space: pre-wrap; word-break: break-word; }
 
-        #issueDetails h5 {
-            margin: 0 0 6px 0;
-        }
-
-        #issueDetails .meta {
-            font-size: 12px;
-            color: #555;
-            margin-bottom: 6px;
-        }
-
-        #issueDetails .indices {
-            font-size: 12px;
-            color: #333;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-
-        #pager {
-            margin-top: 8px;
-            display: flex;
-            gap: 6px;
-            align-items: center;
-        }
-
+        #pager { margin-top: 8px; display: flex; gap: 6px; align-items: center; }
         #pager button {
-            padding: 6px 10px;
+            padding: 8px 12px;
             cursor: pointer;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--panel-2);
+            color: var(--text);
         }
+        #pager button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        #pager button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        #showAllBtn {
-            margin-top: 8px;
-            padding: 6px 10px;
+        #showAllBtn, #showAllComponentsBtn, #clearBtn {
+            padding: 8px 12px;
             cursor: pointer;
             width: 100%;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--panel-2);
+            color: var(--text);
+            margin-top: 8px;
         }
-
-        #componentsSection {
-            border-top: 1px solid #ddd;
-            padding-top: 10px;
-        }
-
-        #componentsList {
-            margin-top: 6px;
-        }
+        #showAllBtn { border-color: var(--accent); background: var(--accent); color: #0b1226; font-weight: 600; }
 
         #componentsControls {
             display: flex;
             gap: 8px;
             align-items: center;
             flex-wrap: wrap;
+            margin-bottom: 6px;
         }
-
         #componentsControls button {
-            padding: 6px 10px;
+            padding: 8px 12px;
             cursor: pointer;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--panel-2);
+            color: var(--text);
         }
+        #componentsControls button:hover { background: #152038; }
+        #autoLargestLabel { font-size: 13px; display: flex; align-items: center; gap: 6px; color: var(--muted); }
 
-        #autoLargestLabel {
-            font-size: 13px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+        input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            border-radius: 10px;
+            border: 1px dashed var(--border);
+            background: var(--panel-2);
+            color: var(--text);
         }
-
         #output {
             max-height: 140px;
             overflow: auto;
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px;
+            color: var(--muted);
+        }
+
+        .toolbar {
+            position: absolute;
+            right: 16px;
+            bottom: 16px;
+            display: flex;
+            gap: 8px;
+            background: rgba(15, 23, 42, 0.92);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            flex-wrap: wrap;
+            max-width: 420px;
+        }
+        .toolbar button, .toolbar input, .toolbar select {
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--panel-2);
+            color: var(--text);
+            cursor: pointer;
+        }
+        .toolbar button:hover { background: #152038; }
+        .toolbar .primary { border-color: var(--accent); background: var(--accent); color: #0b1226; font-weight: 600; }
+        .toolbar details {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 6px 8px;
+            background: var(--panel-2);
+            color: var(--text);
+        }
+        .toolbar summary {
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .toolbar .control-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 6px;
+            align-items: center;
+            margin: 6px 0;
+            font-size: 12px;
+        }
+        .toolbar label {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            font-size: 12px;
+        }
+        .toolbar input[type="range"] {
+            width: 140px;
         }
     </style>
 </head>
 
 <body>
-    <div id="sidebar">
-        <h3>STL Inspector</h3>
-        <input type="file" id="fileInput" accept=".stl" />
-        <pre id="output"></pre>
+    <div class="app">
+        <div class="rail">
+            <button class="active" data-panel="issues" title="Issues">⚠️</button>
+            <button data-panel="components" title="Components">🧩</button>
+            <button data-panel="file" title="File">📁</button>
+            <button data-panel="tools" title="Tools">🛠</button>
+            <button data-panel="settings" title="Settings">⚙️</button>
+        </div>
 
-        <h4>Issues</h4>
-        <div id="issues"></div>
-        <button id="clearBtn">Clear highlight</button>
-
-        <div>
-            <h4>Selection</h4>
-            <div id="issueDetails">
-                <h5 id="issueTitle">No issue selected</h5>
-                <div class="meta" id="issueMeta"></div>
-                <div class="indices" id="issueIndices"></div>
-                <button id="showAllBtn">Show all</button>
-                <div id="pager">
-                    <button id="prevBtn">Prev</button>
-                    <span id="pageInfo">–</span>
-                    <button id="nextBtn">Next</button>
+        <div class="context">
+            <div class="card" id="summaryCard">
+                <h4>Summary</h4>
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <span class="label">Watertight</span>
+                        <span class="value" id="summaryWatertight">–</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">Components</span>
+                        <span class="value" id="summaryComponents">–</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">Faces</span>
+                        <span class="value" id="summaryFaces">–</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">Vertices</span>
+                        <span class="value" id="summaryVertices">–</span>
+                    </div>
                 </div>
             </div>
+
+            <div class="card panel" id="panel-file">
+                <h4>File</h4>
+                <input type="file" id="fileInput" accept=".stl" />
+                <pre id="output"></pre>
+            </div>
+
+            <div class="card panel" id="panel-issues">
+                <h4>Issues</h4>
+                <div id="issues"></div>
+                <div id="issueDetails">
+                    <h5 id="issueTitle">No issue selected</h5>
+                    <div class="meta" id="issueMeta"></div>
+                    <div class="indices" id="issueIndices"></div>
+                    <button id="showAllBtn">Show all</button>
+                </div>
+            </div>
+
+            <div class="card panel hidden" id="panel-components">
+                <h4>Components</h4>
+                <div id="componentsControls">
+                    <button id="showAllComponentsBtn">Show all</button>
+                    <label id="autoLargestLabel">
+                        <input type="checkbox" id="autoLargest">
+                        Auto largest
+                    </label>
+                </div>
+                <div id="componentsList"></div>
+            </div>
+
+            <div class="card panel hidden" id="panel-tools">
+                <h4>Tools</h4>
+                <div class="meta">Reserved for future tools.</div>
+            </div>
+
+            <div class="card panel hidden" id="panel-settings">
+                <h4>Settings</h4>
+                <div class="meta">Reserved for settings.</div>
+            </div>
+
+            <button id="clearBtn">Clear highlight</button>
         </div>
 
-        <div id="componentsSection">
-            <h4>Components</h4>
-            <div id="componentsControls">
-                <button id="showAllComponentsBtn">Show all components</button>
-                <label id="autoLargestLabel">
-                    <input type="checkbox" id="autoLargest">
-                    Auto show largest
-                </label>
+        <div class="viewer-wrap">
+            <div id="viewer"></div>
+            <div class="toolbar hidden" id="floatingToolbar">
+                <button id="prevBtn">Prev</button>
+                <button id="nextBtn">Next</button>
+                <button id="modeToggleBtn">Step</button>
+                <button id="focusBtn">Focus</button>
+                <button id="highlightToggleBtn">Hide highlight</button>
+                <button class="primary" id="clearToolbarBtn">Clear</button>
+                <details id="viewDetails">
+                    <summary>View / Render</summary>
+                    <div class="control-row">
+                        <span>Edge threshold</span>
+                        <input type="range" id="edgeThreshold" min="0" max="60" value="12">
+                    </div>
+                    <div class="control-row">
+                        <span>Edges</span>
+                        <select id="edgeMode">
+                            <option value="feature">Feature</option>
+                            <option value="all">All</option>
+                            <option value="off">Off</option>
+                        </select>
+                    </div>
+                    <div class="control-row">
+                        <label><input type="checkbox" id="smoothShading" checked> Smooth shading</label>
+                    </div>
+                    <div class="control-row">
+                        <label><input type="checkbox" id="xrayToggle"> X-ray</label>
+                    </div>
+                    <div class="control-row">
+                        <label><input type="checkbox" id="wireframeToggle"> Wireframe</label>
+                    </div>
+                    <div class="control-row">
+                        <label><input type="checkbox" id="outlineToggle"> Outline</label>
+                    </div>
+                    <div class="control-row">
+                        <label><input type="checkbox" id="gridToggle" checked> Grid</label>
+                    </div>
+                    <div class="control-row">
+                        <label><input type="checkbox" id="axesToggle" checked> Axes</label>
+                    </div>
+                    <div class="control-row">
+                        <span>Exposure</span>
+                        <input type="range" id="exposureSlider" min="0.2" max="3" step="0.05" value="1.4">
+                    </div>
+                    <button id="resetViewBtn" style="width:100%;">Reset view settings</button>
+                </details>
             </div>
-            <div id="componentsList"></div>
         </div>
     </div>
-
-    <div id="viewer"></div>
 
     <script type="module" src="main.js"></script>
 </body>

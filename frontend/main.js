@@ -14,11 +14,30 @@ const issueMeta = document.getElementById("issueMeta");
 const issueIndices = document.getElementById("issueIndices");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
-const pageInfo = document.getElementById("pageInfo");
 const showAllBtn = document.getElementById("showAllBtn");
 const componentsList = document.getElementById("componentsList");
 const showAllComponentsBtn = document.getElementById("showAllComponentsBtn");
 const autoLargestInput = document.getElementById("autoLargest");
+const railButtons = document.querySelectorAll(".rail button");
+const panels = document.querySelectorAll(".panel");
+const toolbar = document.getElementById("floatingToolbar");
+const modeToggleBtn = document.getElementById("modeToggleBtn");
+const focusBtn = document.getElementById("focusBtn");
+const highlightToggleBtn = document.getElementById("highlightToggleBtn");
+const clearToolbarBtn = document.getElementById("clearToolbarBtn");
+const summaryWatertight = document.getElementById("summaryWatertight");
+const summaryComponents = document.getElementById("summaryComponents");
+const summaryFaces = document.getElementById("summaryFaces");
+const summaryVertices = document.getElementById("summaryVertices");
+const edgeThresholdInput = document.getElementById("edgeThreshold");
+const edgeModeSelect = document.getElementById("edgeMode");
+const smoothShadingInput = document.getElementById("smoothShading");
+const xrayToggle = document.getElementById("xrayToggle");
+const wireframeToggle = document.getElementById("wireframeToggle");
+const gridToggle = document.getElementById("gridToggle");
+const axesToggle = document.getElementById("axesToggle");
+const exposureSlider = document.getElementById("exposureSlider");
+const resetViewBtn = document.getElementById("resetViewBtn");
 
 const state = {
     issues: [],
@@ -27,9 +46,17 @@ const state = {
     mode: "step",
     components: [],
     selectedComponent: null,
+    highlightEnabled: true,
+    summary: null,
+    activePanel: "issues",
 };
 
 const issueButtons = [];
+const collapsedGroups = {
+    error: false,
+    warning: false,
+    info: false,
+};
 
 function getIssueItems(issue) {
     const faces = Array.isArray(issue.faces) ? issue.faces : [];
@@ -107,9 +134,55 @@ function computeComponents(meshData) {
     return components;
 }
 
+function renderIssuesGrouped(issues) {
+    issuesEl.innerHTML = "";
+    issueButtons.length = 0;
+
+    const groups = { error: [], warning: [], info: [] };
+    issues.forEach((issue, idx) => {
+        const sev = (issue.severity || "info").toLowerCase();
+        if (!groups[sev]) groups[sev] = [];
+        groups[sev].push({ issue, idx });
+    });
+
+    function createGroup(sevLabel, items) {
+        const sev = sevLabel.toLowerCase();
+        const groupDiv = document.createElement("div");
+        groupDiv.className = "group";
+        const header = document.createElement("div");
+        header.className = "group-header";
+        header.textContent = `${sevLabel} (${items.length})`;
+        const body = document.createElement("div");
+        body.className = "group-items";
+        body.classList.toggle("hidden", collapsedGroups[sev]);
+        header.addEventListener("click", () => {
+            collapsedGroups[sev] = !collapsedGroups[sev];
+            body.classList.toggle("hidden", collapsedGroups[sev]);
+        });
+        groupDiv.appendChild(header);
+        groupDiv.appendChild(body);
+
+        items.forEach(({ issue, idx }) => {
+            const btn = document.createElement("button");
+            const countText = issue.count != null ? ` (${issue.count})` : "";
+            btn.textContent = `${issue.severity.toUpperCase()}: ${issue.type}${countText}`;
+            btn.title = issue.message;
+            btn.addEventListener("click", () => selectIssue(idx));
+            body.appendChild(btn);
+            issueButtons.push({ el: btn, index: idx });
+        });
+
+        issuesEl.appendChild(groupDiv);
+    }
+
+    createGroup("Error", groups.error);
+    createGroup("Warning", groups.warning);
+    createGroup("Info", groups.info);
+}
+
 function updateActiveButtons() {
-    issueButtons.forEach((btn, idx) => {
-        btn.classList.toggle("active", idx === state.selectedIndex);
+    issueButtons.forEach((info) => {
+        info.el.classList.toggle("active", info.index === state.selectedIndex);
     });
 }
 
@@ -118,7 +191,6 @@ function renderDetails(issue, meta) {
         issueTitle.textContent = "No issue selected";
         issueMeta.textContent = "";
         issueIndices.textContent = "";
-        pageInfo.textContent = "–";
         prevBtn.disabled = true;
         nextBtn.disabled = true;
         showAllBtn.disabled = true;
@@ -133,7 +205,6 @@ function renderDetails(issue, meta) {
     issueMeta.textContent = metaParts.join(" • ");
 
     issueIndices.textContent = meta.description;
-    pageInfo.textContent = meta.pageLabel;
     prevBtn.disabled = meta.disableNav;
     nextBtn.disabled = meta.disableNav;
     showAllBtn.disabled = false;
@@ -167,6 +238,7 @@ function applyComponentSelection(componentIndex) {
     }
     renderSelection();
     renderComponentsList();
+    updateToolbarVisibility();
 }
 
 function selectLargestComponent() {
@@ -178,12 +250,71 @@ function selectLargestComponent() {
     applyComponentSelection(largest.componentIndex);
 }
 
+function setActivePanel(panelName) {
+    state.activePanel = panelName;
+    panels.forEach((p) => {
+        p.classList.toggle("hidden", p.id !== `panel-${panelName}`);
+    });
+    railButtons.forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.panel === panelName);
+    });
+}
+
+function updateToolbarVisibility() {
+    const hasIssueSelection = state.selectedIndex >= 0;
+    const hasComponentSelection = state.selectedComponent !== null;
+    toolbar.classList.toggle("hidden", !(hasIssueSelection || hasComponentSelection));
+    modeToggleBtn.disabled = !hasIssueSelection;
+    prevBtn.disabled = !hasIssueSelection;
+    nextBtn.disabled = !hasIssueSelection;
+}
+
+function updateSummary(summary) {
+    if (!summary) return;
+    summaryWatertight.textContent = summary.is_watertight ? "Yes" : "No";
+    summaryComponents.textContent = summary.num_components ?? "–";
+    summaryFaces.textContent = summary.num_faces ?? "–";
+    summaryVertices.textContent = summary.num_vertices ?? "–";
+}
+
+function loadViewSettings() {
+    const saved = localStorage.getItem("stl-view-settings");
+    if (saved) {
+        try {
+            const parsed = JSON.parse(saved);
+            viewer.setViewSettings(parsed);
+        } catch (e) {
+            console.warn("Failed to parse saved view settings", e);
+        }
+    }
+    syncViewControls();
+}
+
+function saveViewSettings() {
+    const current = viewer.getViewSettings();
+    localStorage.setItem("stl-view-settings", JSON.stringify(current));
+}
+
+function syncViewControls() {
+    const v = viewer.getViewSettings();
+    edgeThresholdInput.value = v.edgeThreshold;
+    edgeModeSelect.value = v.edgeMode;
+    smoothShadingInput.checked = v.smoothShading;
+    xrayToggle.checked = v.xray;
+    wireframeToggle.checked = v.wireframe;
+    gridToggle.checked = v.grid;
+    axesToggle.checked = v.axes;
+    exposureSlider.value = v.exposure;
+    highlightToggleBtn.textContent = state.highlightEnabled ? "Hide highlight" : "Show highlight";
+}
+
 function renderSelection() {
     const issue = state.issues[state.selectedIndex];
     updateActiveButtons();
+    highlightToggleBtn.textContent = state.highlightEnabled ? "Hide highlight" : "Show highlight";
 
     if (!issue) {
-        viewer.clearHighlights();
+        if (state.highlightEnabled) viewer.clearHighlights();
         renderDetails(null, { description: "", pageLabel: "–", disableNav: true });
         return;
     }
@@ -198,7 +329,7 @@ function renderSelection() {
     let disableNav = true;
 
     if (state.mode === "all") {
-        viewer.showIssueAll(issue);
+        if (state.highlightEnabled) viewer.showIssueAll(issue);
         pageLabel = total ? `All ${total} items` : "All items";
         description = total ? "Highlighting all items for this issue." : description;
         disableNav = total <= 1;
@@ -207,16 +338,16 @@ function renderSelection() {
             const faceIndex = items[safeIndex];
             pageLabel = `Face ${safeIndex + 1} of ${total}`;
             description = `Face index: ${faceIndex}`;
-            viewer.showIssueItem(issue, safeIndex);
+            if (state.highlightEnabled) viewer.showIssueItem(issue, safeIndex);
             disableNav = total <= 1;
         } else if (kind === "edge" && total) {
             const edgePair = items[safeIndex];
             pageLabel = `Edge ${safeIndex + 1} of ${total}`;
             description = `Edge vertices: ${edgePair.join(" - ")}`;
-            viewer.showIssueItem(issue, safeIndex);
+            if (state.highlightEnabled) viewer.showIssueItem(issue, safeIndex);
             disableNav = total <= 1;
         } else {
-            viewer.showIssueAll(issue);
+            if (state.highlightEnabled) viewer.showIssueAll(issue);
         }
     }
 
@@ -225,6 +356,8 @@ function renderSelection() {
         description,
         disableNav,
     });
+
+    updateToolbarVisibility();
 }
 
 function selectIssue(idx) {
@@ -246,6 +379,8 @@ function moveItem(delta) {
 }
 
 renderSelection();
+updateToolbarVisibility();
+loadViewSettings();
 
 fileInput.addEventListener("change", async () => {
     const file = fileInput.files[0];
@@ -279,22 +414,12 @@ fileInput.addEventListener("change", async () => {
         state.mode = "step";
         state.components = computeComponents(data.mesh);
         state.selectedComponent = null;
+        state.summary = data.summary || null;
         renderSelection();
         renderComponentsList();
+        updateSummary(state.summary);
 
-        issues.forEach((issue, idx) => {
-            const btn = document.createElement("button");
-            const countText = issue.count != null ? ` (${issue.count})` : "";
-            btn.textContent = `${issue.severity.toUpperCase()}: ${issue.type}${countText}`;
-            btn.title = issue.message;
-
-            btn.addEventListener("click", () => {
-                selectIssue(idx);
-            });
-
-            issuesEl.appendChild(btn);
-            issueButtons.push(btn);
-        });
+        renderIssuesGrouped(issues);
 
         if (autoLargestInput.checked && state.components.length) {
             const largest = state.components.reduce((best, comp) =>
@@ -342,4 +467,92 @@ autoLargestInput.addEventListener("change", () => {
     if (autoLargestInput.checked) {
         selectLargestComponent();
     }
+});
+
+railButtons.forEach((btn) => {
+    btn.addEventListener("click", () => setActivePanel(btn.dataset.panel));
+});
+
+modeToggleBtn.addEventListener("click", () => {
+    state.mode = state.mode === "all" ? "step" : "all";
+    modeToggleBtn.textContent = state.mode === "all" ? "Step" : "All";
+    renderSelection();
+});
+
+focusBtn.addEventListener("click", () => {
+    renderSelection(); // re-run focus logic for current selection
+});
+
+highlightToggleBtn.addEventListener("click", () => {
+    state.highlightEnabled = !state.highlightEnabled;
+    highlightToggleBtn.textContent = state.highlightEnabled ? "Hide highlight" : "Show highlight";
+    if (!state.highlightEnabled) {
+        viewer.clearHighlights();
+    } else {
+        renderSelection();
+    }
+});
+
+clearToolbarBtn.addEventListener("click", () => {
+    viewer.clearHighlights();
+    state.selectedIndex = -1;
+    state.itemIndex = 0;
+    state.mode = "step";
+    renderSelection();
+    updateToolbarVisibility();
+});
+
+edgeThresholdInput.addEventListener("input", () => {
+    viewer.setViewSettings({ edgeThreshold: Number(edgeThresholdInput.value) });
+    renderSelection();
+    saveViewSettings();
+});
+
+edgeModeSelect.addEventListener("change", () => {
+    viewer.setViewSettings({ edgeMode: edgeModeSelect.value });
+    renderSelection();
+    saveViewSettings();
+});
+
+smoothShadingInput.addEventListener("change", () => {
+    viewer.setViewSettings({ smoothShading: smoothShadingInput.checked });
+    renderSelection();
+    saveViewSettings();
+});
+
+xrayToggle.addEventListener("change", () => {
+    viewer.setViewSettings({ xray: xrayToggle.checked });
+    renderSelection();
+    saveViewSettings();
+});
+
+wireframeToggle.addEventListener("change", () => {
+    viewer.setViewSettings({ wireframe: wireframeToggle.checked });
+    renderSelection();
+    saveViewSettings();
+});
+
+gridToggle.addEventListener("change", () => {
+    viewer.setViewSettings({ grid: gridToggle.checked });
+    renderSelection();
+    saveViewSettings();
+});
+
+axesToggle.addEventListener("change", () => {
+    viewer.setViewSettings({ axes: axesToggle.checked });
+    renderSelection();
+    saveViewSettings();
+});
+
+exposureSlider.addEventListener("input", () => {
+    viewer.setViewSettings({ exposure: Number(exposureSlider.value) });
+    renderSelection();
+    saveViewSettings();
+});
+
+resetViewBtn.addEventListener("click", () => {
+    viewer.resetViewSettings();
+    syncViewControls();
+    renderSelection();
+    saveViewSettings();
 });
