@@ -1,10 +1,13 @@
 from flask import Flask, request, jsonify
 import trimesh
 import io
+from flask_cors import CORS
 
 from analyze_stl import analyze_mesh
 
 app = Flask(__name__)
+
+CORS(app)
 
 @app.route("/ping")
 def ping():
