@@ -8,6 +8,23 @@ export function createViewer(container) {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf2f2f2);
 
+    // Helpers
+    const axesHelper = new THREE.AxesHelper(1); // size will be updated after mesh loads
+    scene.add(axesHelper);
+
+    const gridHelper = new THREE.GridHelper(10, 20); // size will be updated after mesh loads
+    gridHelper.position.y = 0;
+    scene.add(gridHelper);
+
+    const groundGeom = new THREE.PlaneGeometry(10, 10);
+    const groundMat = new THREE.MeshStandardMaterial({
+        transparent: true,
+        opacity: 0.25,
+    });
+    const ground = new THREE.Mesh(groundGeom, groundMat);
+    ground.rotation.x = -Math.PI / 2; // make it horizontal (XZ plane)
+    scene.add(ground);
+
     const camera = new THREE.PerspectiveCamera(
         60,
         container.clientWidth / container.clientHeight,
@@ -72,6 +89,21 @@ export function createViewer(container) {
         geometry.computeBoundingBox();
         geometry.computeBoundingSphere();
 
+        // Center the model at origin and optionally place it on the ground plane
+        const box = geometry.boundingBox;
+        const size = new THREE.Vector3();
+        box.getSize(size);
+
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+
+        // Move geometry so its center is at origin
+        geometry.translate(-center.x, -center.y, -center.z);
+
+        // Recompute bounds after translation
+        geometry.computeBoundingBox();
+        geometry.computeBoundingSphere();
+
         const material = new THREE.MeshStandardMaterial({
             metalness: 0.0,
             roughness: 0.8,
@@ -79,9 +111,16 @@ export function createViewer(container) {
 
         const mesh = new THREE.Mesh(geometry, material);
 
-        // Remove old mesh/edges if present
+        // Now place mesh so it sits on the ground (y = 0)
+        const box2 = geometry.boundingBox;
+        const minY = box2.min.y;
+
+        // Move mesh upward so lowest point touches y=0
+        mesh.position.y = -minY;
+
+        // Remove old mesh (edges are children of the mesh)
         if (currentMesh) scene.remove(currentMesh);
-        if (currentEdges) scene.remove(currentEdges);
+        currentEdges = null;
 
         currentMesh = mesh;
         scene.add(mesh);
@@ -90,20 +129,32 @@ export function createViewer(container) {
         const edgesGeom = new THREE.EdgesGeometry(geometry, 20); // threshold angle in degrees
         const edgesMat = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.6 });
         currentEdges = new THREE.LineSegments(edgesGeom, edgesMat);
-        scene.add(currentEdges);
+        mesh.add(currentEdges);
 
         // Fit camera to mesh
         const sphere = geometry.boundingSphere;
         const r = sphere.radius;
         const c = sphere.center;
 
-        controls.minDistance = r * 0.2;
-        controls.maxDistance = r * 10;
-        controls.target.copy(c);
-        camera.position.set(c.x, c.y, c.z + r * 2.5);
+        // Resize helpers to match the model scale
+        axesHelper.scale.setScalar(r);
+        gridHelper.scale.setScalar(r);
+        ground.scale.setScalar(r / 5);
+
+        // Keep ground at y=0
+        ground.position.y = 0;
+
+        // After mesh.position.y has been set
+        const target = new THREE.Vector3(0, mesh.position.y + r * 0.2, 0);
+        controls.target.copy(target);
+
+        camera.position.set(target.x, target.y + r * 0.5, target.z + r * 2.5);
         camera.near = r / 100;
         camera.far = r * 100;
         camera.updateProjectionMatrix();
+
+        controls.minDistance = r * 0.2;
+        controls.maxDistance = r * 10;
         controls.update();
     }
 
