@@ -10,6 +10,8 @@ export function createViewer(container) {
     let highlightMesh = null;
     let highlightEdges = null;
     let highlightLineMaterial = null;
+    let desiredTarget = new THREE.Vector3(0, 0, 0);
+    let desiredCameraPos = new THREE.Vector3(0, 0, 3);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf2f2f2);
@@ -64,6 +66,8 @@ export function createViewer(container) {
     controls.panSpeed = 0.6;
 
     controls.screenSpacePanning = true;
+    desiredTarget.copy(controls.target);
+    desiredCameraPos.copy(camera.position);
 
     // Optional: constrain zoom distances once mesh is loaded
     // we’ll set min/max in setMeshFromApi after we know the bounding sphere
@@ -162,6 +166,9 @@ export function createViewer(container) {
         controls.minDistance = r * 0.2;
         controls.maxDistance = r * 10;
         controls.update();
+
+        desiredTarget.copy(target);
+        desiredCameraPos.copy(camera.position);
     }
 
     function onResize() {
@@ -182,6 +189,8 @@ export function createViewer(container) {
 
     function animate() {
         requestAnimationFrame(animate);
+        camera.position.lerp(desiredCameraPos, 0.12);
+        controls.target.lerp(desiredTarget, 0.15);
         controls.update();
         renderer.render(scene, camera);
     }
@@ -189,18 +198,23 @@ export function createViewer(container) {
 
     function clearHighlights() {
         if (highlightMesh) {
-            if (highlightMesh && highlightMesh.parent) {
+            if (highlightMesh.parent) {
                 highlightMesh.parent.remove(highlightMesh);
-            } highlightMesh.geometry.dispose();
+            }
+            highlightMesh.geometry.dispose();
             highlightMesh.material.dispose();
             highlightMesh = null;
         }
         if (highlightEdges) {
-            if (highlightEdges && highlightEdges.parent) {
+            if (highlightEdges.parent) {
                 highlightEdges.parent.remove(highlightEdges);
-            } highlightEdges.geometry.dispose();
-            highlightEdges.material.dispose();
+            }
+            highlightEdges.geometry.dispose();
+            if (highlightLineMaterial) {
+                highlightLineMaterial.dispose();
+            }
             highlightEdges = null;
+            highlightLineMaterial = null;
         }
     }
 
@@ -251,6 +265,68 @@ export function createViewer(container) {
         currentMesh.add(highlightMesh);
     }
 
+    function faceCentroid(faceIndex) {
+        const baseGeom = currentMesh.geometry;
+        const posAttr = baseGeom.getAttribute("position");
+        const indexAttr = baseGeom.getIndex();
+
+        const i0 = indexAttr.getX(faceIndex * 3 + 0);
+        const i1 = indexAttr.getX(faceIndex * 3 + 1);
+        const i2 = indexAttr.getX(faceIndex * 3 + 2);
+
+        const v0 = new THREE.Vector3(posAttr.getX(i0), posAttr.getY(i0), posAttr.getZ(i0));
+        const v1 = new THREE.Vector3(posAttr.getX(i1), posAttr.getY(i1), posAttr.getZ(i1));
+        const v2 = new THREE.Vector3(posAttr.getX(i2), posAttr.getY(i2), posAttr.getZ(i2));
+
+        // Centroid = average of the 3 vertices
+        const centroid = new THREE.Vector3();
+        centroid.add(v0).add(v1).add(v2).multiplyScalar(1 / 3);
+
+        return currentMesh.localToWorld(centroid);
+    }
+
+    function edgeMidpoint(edgePair) {
+        const baseGeom = currentMesh.geometry;
+        const posAttr = baseGeom.getAttribute("position");
+        const [a, b] = edgePair;
+
+        const va = new THREE.Vector3(posAttr.getX(a), posAttr.getY(a), posAttr.getZ(a));
+        const vb = new THREE.Vector3(posAttr.getX(b), posAttr.getY(b), posAttr.getZ(b));
+
+        // Midpoint of the two vertices
+        const mid = new THREE.Vector3().addVectors(va, vb).multiplyScalar(0.5);
+        return currentMesh.localToWorld(mid);
+    }
+
+    function moveCameraToPoint(point) {
+        if (!currentMesh) return;
+        const r = currentMesh.geometry.boundingSphere
+            ? currentMesh.geometry.boundingSphere.radius
+            : 1;
+
+        desiredTarget.copy(point);
+
+        // Offset upward and backwards by a fraction of mesh radius to keep framing comfortable
+        const offset = new THREE.Vector3(0, r * 0.3, r * 1.2);
+        desiredCameraPos.copy(point).add(offset);
+    }
+
+    function focusFace(faceIndex) {
+        if (!currentMesh || faceIndex == null) return;
+        clearHighlights();
+        highlightFaces([faceIndex]);
+        const centroid = faceCentroid(faceIndex);
+        moveCameraToPoint(centroid);
+    }
+
+    function focusEdge(edgePair) {
+        if (!currentMesh || !edgePair) return;
+        clearHighlights();
+        highlightEdgePairs([edgePair]);
+        const mid = edgeMidpoint(edgePair);
+        moveCameraToPoint(mid);
+    }
+
     function highlightEdgePairs(edgePairs) {
         if (!currentMesh) return;
 
@@ -297,6 +373,68 @@ export function createViewer(container) {
         currentMesh.add(highlightEdges);
     }
 
+    function faceCentroid(faceIndex) {
+        const baseGeom = currentMesh.geometry;
+        const posAttr = baseGeom.getAttribute("position");
+        const indexAttr = baseGeom.getIndex();
+
+        const i0 = indexAttr.getX(faceIndex * 3 + 0);
+        const i1 = indexAttr.getX(faceIndex * 3 + 1);
+        const i2 = indexAttr.getX(faceIndex * 3 + 2);
+
+        const v0 = new THREE.Vector3(posAttr.getX(i0), posAttr.getY(i0), posAttr.getZ(i0));
+        const v1 = new THREE.Vector3(posAttr.getX(i1), posAttr.getY(i1), posAttr.getZ(i1));
+        const v2 = new THREE.Vector3(posAttr.getX(i2), posAttr.getY(i2), posAttr.getZ(i2));
+
+        // Centroid = average of the 3 vertices
+        const centroid = new THREE.Vector3();
+        centroid.add(v0).add(v1).add(v2).multiplyScalar(1 / 3);
+
+        return currentMesh.localToWorld(centroid);
+    }
+
+    function edgeMidpoint(edgePair) {
+        const baseGeom = currentMesh.geometry;
+        const posAttr = baseGeom.getAttribute("position");
+        const [a, b] = edgePair;
+
+        const va = new THREE.Vector3(posAttr.getX(a), posAttr.getY(a), posAttr.getZ(a));
+        const vb = new THREE.Vector3(posAttr.getX(b), posAttr.getY(b), posAttr.getZ(b));
+
+        // Midpoint of the two vertices
+        const mid = new THREE.Vector3().addVectors(va, vb).multiplyScalar(0.5);
+        return currentMesh.localToWorld(mid);
+    }
+
+    function moveCameraToPoint(point) {
+        if (!currentMesh) return;
+        const r = currentMesh.geometry.boundingSphere
+            ? currentMesh.geometry.boundingSphere.radius
+            : 1;
+
+        desiredTarget.copy(point);
+
+        // Offset upward and backwards by a fraction of mesh radius to keep framing comfortable
+        const offset = new THREE.Vector3(0, r * 0.3, r * 1.2);
+        desiredCameraPos.copy(point).add(offset);
+    }
+
+    function focusFace(faceIndex) {
+        if (!currentMesh || faceIndex == null) return;
+        clearHighlights();
+        highlightFaces([faceIndex]);
+        const centroid = faceCentroid(faceIndex);
+        moveCameraToPoint(centroid);
+    }
+
+    function focusEdge(edgePair) {
+        if (!currentMesh || !edgePair) return;
+        clearHighlights();
+        highlightEdgePairs([edgePair]);
+        const mid = edgeMidpoint(edgePair);
+        moveCameraToPoint(mid);
+    }
+
     function showIssue(issue) {
         clearHighlights();
 
@@ -311,5 +449,5 @@ export function createViewer(container) {
         }
     }
 
-    return { setMeshFromApi, showIssue, clearHighlights };
+    return { setMeshFromApi, showIssue, clearHighlights, focusFace, focusEdge };
 }

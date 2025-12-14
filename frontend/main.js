@@ -1,7 +1,5 @@
 import { createViewer } from "./viewer.js";
 
-const CHUNK_SIZE = 200;
-
 const fileInput = document.getElementById("fileInput");
 const output = document.getElementById("output");
 
@@ -21,52 +19,17 @@ const pageInfo = document.getElementById("pageInfo");
 const state = {
     issues: [],
     selectedIndex: -1,
-    page: 0,
+    itemIndex: 0,
 };
 
 const issueButtons = [];
 
-function formatPreview(list, formatter = (v) => v, limit = 12) {
-    if (!list || list.length === 0) return "";
-    const values = list.slice(0, limit).map(formatter);
-    const suffix = list.length > limit ? " …" : "";
-    return values.join(", ") + suffix;
-}
-
-function sliceInfo(list, page) {
-    const total = Array.isArray(list) ? list.length : 0;
-    const pageCount = total > 0 ? Math.ceil(total / CHUNK_SIZE) : 1;
-    const safePage = Math.max(0, Math.min(page, pageCount - 1));
-    const start = total > 0 ? safePage * CHUNK_SIZE : 0;
-    const end = total > 0 ? Math.min(start + CHUNK_SIZE, total) : 0;
-
-    return {
-        total,
-        pageCount,
-        start,
-        end,
-        page: safePage,
-        slice: total > 0 ? list.slice(start, end) : [],
-    };
-}
-
-function totalPagesForIssue(issue) {
-    const counts = [];
-    if (issue.faces && issue.faces.length) {
-        counts.push(Math.ceil(issue.faces.length / CHUNK_SIZE));
-    }
-    if (issue.edges && issue.edges.length) {
-        counts.push(Math.ceil(issue.edges.length / CHUNK_SIZE));
-    }
-    return counts.length ? Math.max(...counts) : 1;
-}
-
-function buildSelectionMeta(issue, requestedPage) {
-    const totalPages = totalPagesForIssue(issue);
-    const normalizedPage = ((requestedPage % totalPages) + totalPages) % totalPages;
-    const faces = sliceInfo(issue.faces || [], normalizedPage);
-    const edges = sliceInfo(issue.edges || [], normalizedPage);
-    return { faces, edges, totalPages, page: normalizedPage };
+function getIssueItems(issue) {
+    const faces = Array.isArray(issue.faces) ? issue.faces : [];
+    const edges = Array.isArray(issue.edges) ? issue.edges : [];
+    if (faces.length) return { kind: "face", items: faces };
+    if (edges.length) return { kind: "edge", items: edges };
+    return { kind: "none", items: [] };
 }
 
 function updateActiveButtons() {
@@ -93,29 +56,10 @@ function renderDetails(issue, meta) {
     if (issue.count != null) metaParts.push(`Count: ${issue.count}`);
     issueMeta.textContent = metaParts.join(" • ");
 
-    const lines = [];
-    if (meta.faces.total) {
-        lines.push(`Faces ${meta.faces.start + 1}-${meta.faces.end} of ${meta.faces.total}`);
-    }
-    if (meta.edges.total) {
-        lines.push(`Edges ${meta.edges.start + 1}-${meta.edges.end} of ${meta.edges.total}`);
-    }
-
-    const facePreview = formatPreview(meta.faces.slice);
-    if (facePreview) {
-        lines.push(`Face indices: ${facePreview}`);
-    }
-
-    const edgePreview = formatPreview(meta.edges.slice, (pair) => pair.join("-"));
-    if (edgePreview) {
-        lines.push(`Edge pairs: ${edgePreview}`);
-    }
-
-    issueIndices.textContent = lines.join("\n");
-    pageInfo.textContent = meta.totalPages > 1 ? `Page ${meta.page + 1}/${meta.totalPages}` : "–";
-    const enablePaging = meta.totalPages > 1;
-    prevBtn.disabled = !enablePaging;
-    nextBtn.disabled = !enablePaging;
+    issueIndices.textContent = meta.description;
+    pageInfo.textContent = meta.pageLabel;
+    prevBtn.disabled = meta.disableNav;
+    nextBtn.disabled = meta.disableNav;
 }
 
 function renderSelection() {
@@ -124,32 +68,52 @@ function renderSelection() {
 
     if (!issue) {
         viewer.clearHighlights();
-        renderDetails(null, {});
+        renderDetails(null, { description: "", pageLabel: "–", disableNav: true });
         return;
     }
 
-    const meta = buildSelectionMeta(issue, state.page);
-    state.page = meta.page;
+    const { kind, items } = getIssueItems(issue);
+    const total = items.length;
+    const safeIndex = total ? ((state.itemIndex % total) + total) % total : 0;
+    state.itemIndex = safeIndex;
 
-    const issueForViewer = { ...issue };
-    issueForViewer.faces = meta.faces.slice;
-    issueForViewer.edges = meta.edges.slice;
+    let pageLabel = "–";
+    let description = "No indices available for this issue.";
 
-    viewer.showIssue(issueForViewer);
-    renderDetails(issue, meta);
+    if (kind === "face" && total) {
+        const faceIndex = items[safeIndex];
+        pageLabel = `Face ${safeIndex + 1} of ${total}`;
+        description = `Face index: ${faceIndex}`;
+        viewer.focusFace(faceIndex);
+    } else if (kind === "edge" && total) {
+        const edgePair = items[safeIndex];
+        pageLabel = `Edge ${safeIndex + 1} of ${total}`;
+        description = `Edge vertices: ${edgePair.join(" - ")}`;
+        viewer.focusEdge(edgePair);
+    } else {
+        viewer.showIssue(issue); // fallback to default highlight if no iterable items
+    }
+
+    renderDetails(issue, {
+        pageLabel,
+        description,
+        disableNav: total <= 1,
+    });
 }
 
 function selectIssue(idx) {
     state.selectedIndex = idx;
-    state.page = 0;
+    state.itemIndex = 0;
     renderSelection();
 }
 
-function movePage(delta) {
+function moveItem(delta) {
     if (state.selectedIndex < 0) return;
     const issue = state.issues[state.selectedIndex];
-    const pages = totalPagesForIssue(issue);
-    state.page = ((state.page + delta) % pages + pages) % pages;
+    const { items } = getIssueItems(issue);
+    const total = items.length;
+    if (!total) return;
+    state.itemIndex = ((state.itemIndex + delta) % total + total) % total;
     renderSelection();
 }
 
@@ -183,7 +147,7 @@ fileInput.addEventListener("change", async () => {
         issueButtons.length = 0;
         state.issues = issues;
         state.selectedIndex = -1;
-        state.page = 0;
+        state.itemIndex = 0;
         renderSelection();
 
         issues.forEach((issue, idx) => {
@@ -209,9 +173,9 @@ fileInput.addEventListener("change", async () => {
 clearBtn.addEventListener("click", () => {
     viewer.clearHighlights();
     state.selectedIndex = -1;
-    state.page = 0;
+    state.itemIndex = 0;
     renderSelection();
 });
 
-prevBtn.addEventListener("click", () => movePage(-1));
-nextBtn.addEventListener("click", () => movePage(1));
+prevBtn.addEventListener("click", () => moveItem(-1));
+nextBtn.addEventListener("click", () => moveItem(1));
