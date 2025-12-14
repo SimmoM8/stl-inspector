@@ -15,11 +15,13 @@ const issueIndices = document.getElementById("issueIndices");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
 const pageInfo = document.getElementById("pageInfo");
+const modeInputs = document.querySelectorAll('input[name="mode"]');
 
 const state = {
     issues: [],
     selectedIndex: -1,
     itemIndex: 0,
+    mode: "all",
 };
 
 const issueButtons = [];
@@ -35,6 +37,12 @@ function getIssueItems(issue) {
 function updateActiveButtons() {
     issueButtons.forEach((btn, idx) => {
         btn.classList.toggle("active", idx === state.selectedIndex);
+    });
+}
+
+function updateModeInputs() {
+    modeInputs.forEach((input) => {
+        input.checked = input.value === state.mode;
     });
 }
 
@@ -65,6 +73,7 @@ function renderDetails(issue, meta) {
 function renderSelection() {
     const issue = state.issues[state.selectedIndex];
     updateActiveButtons();
+    updateModeInputs();
 
     if (!issue) {
         viewer.clearHighlights();
@@ -79,31 +88,43 @@ function renderSelection() {
 
     let pageLabel = "–";
     let description = "No indices available for this issue.";
+    let disableNav = true;
 
-    if (kind === "face" && total) {
-        const faceIndex = items[safeIndex];
-        pageLabel = `Face ${safeIndex + 1} of ${total}`;
-        description = `Face index: ${faceIndex}`;
-        viewer.focusFace(faceIndex);
-    } else if (kind === "edge" && total) {
-        const edgePair = items[safeIndex];
-        pageLabel = `Edge ${safeIndex + 1} of ${total}`;
-        description = `Edge vertices: ${edgePair.join(" - ")}`;
-        viewer.focusEdge(edgePair);
+    if (state.mode === "all") {
+        viewer.showIssueAll(issue);
+        pageLabel = "All items";
+        disableNav = true;
+    } else if (state.mode === "step") {
+        if (kind === "face" && total) {
+            const faceIndex = items[safeIndex];
+            pageLabel = `Face ${safeIndex + 1} of ${total}`;
+            description = `Face index: ${faceIndex}`;
+            viewer.showIssueItem(issue, safeIndex);
+            disableNav = total <= 1;
+        } else if (kind === "edge" && total) {
+            const edgePair = items[safeIndex];
+            pageLabel = `Edge ${safeIndex + 1} of ${total}`;
+            description = `Edge vertices: ${edgePair.join(" - ")}`;
+            viewer.showIssueItem(issue, safeIndex);
+            disableNav = total <= 1;
+        } else {
+            viewer.showIssueAll(issue);
+        }
     } else {
-        viewer.showIssue(issue); // fallback to default highlight if no iterable items
+        viewer.showIssueAll(issue);
     }
 
     renderDetails(issue, {
         pageLabel,
         description,
-        disableNav: total <= 1,
+        disableNav,
     });
 }
 
 function selectIssue(idx) {
     state.selectedIndex = idx;
     state.itemIndex = 0;
+    state.mode = "all";
     renderSelection();
 }
 
@@ -117,7 +138,20 @@ function moveItem(delta) {
     renderSelection();
 }
 
+function setMode(mode) {
+    state.mode = mode === "step" ? "step" : "all";
+    renderSelection();
+}
+
 renderSelection();
+
+modeInputs.forEach((input) => {
+    input.addEventListener("change", (e) => {
+        if (e.target.checked) {
+            setMode(e.target.value);
+        }
+    });
+});
 
 fileInput.addEventListener("change", async () => {
     const file = fileInput.files[0];
@@ -148,6 +182,7 @@ fileInput.addEventListener("change", async () => {
         state.issues = issues;
         state.selectedIndex = -1;
         state.itemIndex = 0;
+        state.mode = "all";
         renderSelection();
 
         issues.forEach((issue, idx) => {
@@ -174,6 +209,7 @@ clearBtn.addEventListener("click", () => {
     viewer.clearHighlights();
     state.selectedIndex = -1;
     state.itemIndex = 0;
+    state.mode = "all";
     renderSelection();
 });
 

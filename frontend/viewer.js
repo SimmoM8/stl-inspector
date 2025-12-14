@@ -12,6 +12,7 @@ export function createViewer(container) {
     let highlightLineMaterial = null;
     let desiredTarget = new THREE.Vector3(0, 0, 0);
     let desiredCameraPos = new THREE.Vector3(0, 0, 3);
+    let animatingFocus = false;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf2f2f2);
@@ -187,10 +188,34 @@ export function createViewer(container) {
     }
     window.addEventListener("resize", onResize);
 
+    function stopFocusAnimation() {
+        animatingFocus = false;
+        desiredTarget.copy(controls.target);
+        desiredCameraPos.copy(camera.position);
+    }
+
+    function attachInputInterrupts() {
+        const stop = () => stopFocusAnimation();
+        renderer.domElement.addEventListener("pointerdown", stop);
+        renderer.domElement.addEventListener("wheel", stop, { passive: true });
+        window.addEventListener("keydown", stop);
+    }
+    attachInputInterrupts();
+
     function animate() {
         requestAnimationFrame(animate);
-        camera.position.lerp(desiredCameraPos, 0.12);
-        controls.target.lerp(desiredTarget, 0.15);
+        if (animatingFocus) {
+            camera.position.lerp(desiredCameraPos, 0.15);
+            controls.target.lerp(desiredTarget, 0.18);
+
+            const camDone = camera.position.distanceTo(desiredCameraPos) < 1e-3;
+            const tgtDone = controls.target.distanceTo(desiredTarget) < 1e-3;
+            if (camDone && tgtDone) {
+                camera.position.copy(desiredCameraPos);
+                controls.target.copy(desiredTarget);
+                animatingFocus = false;
+            }
+        }
         controls.update();
         renderer.render(scene, camera);
     }
@@ -417,6 +442,7 @@ export function createViewer(container) {
         // Offset upward and backwards by a fraction of mesh radius to keep framing comfortable
         const offset = new THREE.Vector3(0, r * 0.3, r * 1.2);
         desiredCameraPos.copy(point).add(offset);
+        animatingFocus = true;
     }
 
     function focusFace(faceIndex) {
@@ -425,6 +451,7 @@ export function createViewer(container) {
         highlightFaces([faceIndex]);
         const centroid = faceCentroid(faceIndex);
         moveCameraToPoint(centroid);
+        controls.update();
     }
 
     function focusEdge(edgePair) {
@@ -433,11 +460,11 @@ export function createViewer(container) {
         highlightEdgePairs([edgePair]);
         const mid = edgeMidpoint(edgePair);
         moveCameraToPoint(mid);
+        controls.update();
     }
 
-    function showIssue(issue) {
+    function showIssueAll(issue) {
         clearHighlights();
-
         if (!issue) return;
 
         if (issue.faces && issue.faces.length) {
@@ -449,5 +476,37 @@ export function createViewer(container) {
         }
     }
 
-    return { setMeshFromApi, showIssue, clearHighlights, focusFace, focusEdge };
+    function showIssueItem(issue, index) {
+        if (!issue) {
+            clearHighlights();
+            return;
+        }
+        const faces = Array.isArray(issue.faces) ? issue.faces : [];
+        const edges = Array.isArray(issue.edges) ? issue.edges : [];
+
+        if (faces.length) {
+            const safe = ((index % faces.length) + faces.length) % faces.length;
+            focusFace(faces[safe]);
+        } else if (edges.length) {
+            const safe = ((index % edges.length) + edges.length) % edges.length;
+            focusEdge(edges[safe]);
+        } else {
+            showIssueAll(issue);
+        }
+    }
+
+    // keep backward compatibility
+    function showIssue(issue) {
+        showIssueAll(issue);
+    }
+
+    return {
+        setMeshFromApi,
+        showIssue,
+        showIssueAll,
+        showIssueItem,
+        clearHighlights,
+        focusFace,
+        focusEdge
+    };
 }
