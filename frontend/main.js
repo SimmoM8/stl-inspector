@@ -1,8 +1,6 @@
 import { createViewer } from "./viewer.js";
 
 const fileInput = document.getElementById("fileInput");
-const output = document.getElementById("output");
-
 const viewerContainer = document.getElementById("viewer");
 const viewer = createViewer(viewerContainer);
 
@@ -27,13 +25,16 @@ const centerBtn = document.getElementById("centerBtn");
 const frameBtn = document.getElementById("frameBtn");
 const highlightToggleBtn = document.getElementById("highlightToggleBtn");
 const clearToolbarBtn = document.getElementById("clearToolbarBtn");
+const cameraToolbar = document.getElementById("cameraToolbar");
+const inspectToolbar = document.getElementById("inspectToolbar");
+const renderToolbar = document.getElementById("renderToolbar");
 const summaryWatertight = document.getElementById("summaryWatertight");
 const summaryComponents = document.getElementById("summaryComponents");
 const summaryFaces = document.getElementById("summaryFaces");
 const summaryVertices = document.getElementById("summaryVertices");
 const edgeThresholdInput = document.getElementById("edgeThreshold");
 const edgeModeSelect = document.getElementById("edgeMode");
-const smoothShadingInput = document.getElementById("smoothShading");
+const smoothShadingBtn = document.getElementById("smoothShading");
 const xrayToggle = document.getElementById("xrayToggle");
 const wireframeToggle = document.getElementById("wireframeToggle");
 const gridToggle = document.getElementById("gridToggle");
@@ -265,18 +266,22 @@ function setActivePanel(panelName) {
 function updateToolbarVisibility() {
     const hasIssueSelection = state.selectedIndex >= 0;
     const hasComponentSelection = state.selectedComponent !== null;
-    toolbar.classList.toggle("hidden", !(hasIssueSelection || hasComponentSelection));
+    if (cameraToolbar) cameraToolbar.classList.toggle("hidden", false); // always visible
+    if (inspectToolbar) inspectToolbar.classList.toggle("hidden", !(hasIssueSelection || hasComponentSelection));
+    if (renderToolbar) renderToolbar.classList.toggle("hidden", !(hasIssueSelection || hasComponentSelection));
     modeToggleBtn.disabled = !hasIssueSelection;
     prevBtn.disabled = !hasIssueSelection;
     nextBtn.disabled = !hasIssueSelection;
 }
 
 function updateSummary(summary) {
-    if (!summary) return;
-    summaryWatertight.textContent = summary.is_watertight ? "Yes" : "No";
-    summaryComponents.textContent = summary.num_components ?? "–";
-    summaryFaces.textContent = summary.num_faces ?? "–";
-    summaryVertices.textContent = summary.num_vertices ?? "–";
+    if (summary) {
+        summaryWatertight.textContent =
+            summary.isWatertight === undefined ? "–" : (summary.isWatertight ? "Yes" : "No");
+        summaryComponents.textContent = summary.numComponents ?? "–";
+        summaryFaces.textContent = summary.numFaces ?? "–";
+        summaryVertices.textContent = summary.numVertices ?? "–";
+    }
 }
 
 function loadViewSettings() {
@@ -300,12 +305,12 @@ function saveViewSettings() {
 function syncViewControls() {
     const v = viewer.getViewSettings();
     edgeThresholdInput.value = v.edgeThreshold;
-    edgeModeSelect.value = v.edgeMode;
-    smoothShadingInput.checked = v.smoothShading;
-    xrayToggle.checked = v.xray;
-    wireframeToggle.checked = v.wireframe;
-    gridToggle.checked = v.grid;
-    axesToggle.checked = v.axes;
+    edgeModeSelect.dataset.mode = v.edgeMode;
+    smoothShadingBtn.classList.toggle("active", v.smoothShading);
+    xrayToggle.classList.toggle("active", v.xray);
+    wireframeToggle.classList.toggle("active", v.wireframe);
+    gridToggle.classList.toggle("active", v.grid);
+    axesToggle.classList.toggle("active", v.axes);
     exposureSlider.value = v.exposure;
     highlightToggleBtn.textContent = state.highlightEnabled ? "Hide highlight" : "Show highlight";
 }
@@ -383,6 +388,7 @@ function moveItem(delta) {
 renderSelection();
 updateToolbarVisibility();
 loadViewSettings();
+updateSummary(state.summary);
 
 fileInput.addEventListener("change", async () => {
     const file = fileInput.files[0];
@@ -391,7 +397,7 @@ fileInput.addEventListener("change", async () => {
     const formData = new FormData();
     formData.append("file", file);
 
-    output.textContent = "Uploading and analyzing...";
+    if (statusText) statusText.textContent = "Uploading and analyzing...";
 
     try {
         const res = await fetch("http://127.0.0.1:5000/api/analyze", {
@@ -404,7 +410,7 @@ fileInput.addEventListener("change", async () => {
         }
 
         const data = await res.json();
-        output.textContent = JSON.stringify(data.summary, null, 2);
+        if (statusText) statusText.textContent = "Analysis complete";
         viewer.setMeshFromApi(data.mesh);
 
         const issues = Array.isArray(data.issues) ? data.issues : [];
@@ -416,7 +422,9 @@ fileInput.addEventListener("change", async () => {
         state.mode = "step";
         state.components = computeComponents(data.mesh);
         state.selectedComponent = null;
+
         state.summary = data.summary || null;
+
         renderSelection();
         renderComponentsList();
         updateSummary(state.summary);
@@ -436,9 +444,8 @@ fileInput.addEventListener("change", async () => {
             renderComponentsList();
         }
 
-        console.log("Full response:", data);
     } catch (err) {
-        output.textContent = "Error: " + err.message;
+        if (statusText) statusText.textContent = "Error: " + err.message;
     }
 });
 
@@ -518,38 +525,52 @@ edgeThresholdInput.addEventListener("input", () => {
     saveViewSettings();
 });
 
-edgeModeSelect.addEventListener("change", () => {
-    viewer.setViewSettings({ edgeMode: edgeModeSelect.value });
+edgeModeSelect.addEventListener("click", () => {
+    const order = ["feature", "all", "off"];
+    const current = viewer.getViewSettings().edgeMode || "feature";
+    const next = order[(order.indexOf(current) + 1) % order.length];
+    viewer.setViewSettings({ edgeMode: next });
+    edgeModeSelect.classList.toggle("active", next !== "off");
     renderSelection();
     saveViewSettings();
 });
 
-smoothShadingInput.addEventListener("change", () => {
-    viewer.setViewSettings({ smoothShading: smoothShadingInput.checked });
+smoothShadingBtn.addEventListener("click", () => {
+    const next = !viewer.getViewSettings().smoothShading;
+    viewer.setViewSettings({ smoothShading: next });
+    smoothShadingBtn.classList.toggle("active", next);
     renderSelection();
     saveViewSettings();
 });
 
-xrayToggle.addEventListener("change", () => {
-    viewer.setViewSettings({ xray: xrayToggle.checked });
+xrayToggle.addEventListener("click", () => {
+    const next = !viewer.getViewSettings().xray;
+    viewer.setViewSettings({ xray: next });
+    xrayToggle.classList.toggle("active", next);
     renderSelection();
     saveViewSettings();
 });
 
-wireframeToggle.addEventListener("change", () => {
-    viewer.setViewSettings({ wireframe: wireframeToggle.checked });
+wireframeToggle.addEventListener("click", () => {
+    const next = !viewer.getViewSettings().wireframe;
+    viewer.setViewSettings({ wireframe: next });
+    wireframeToggle.classList.toggle("active", next);
     renderSelection();
     saveViewSettings();
 });
 
-gridToggle.addEventListener("change", () => {
-    viewer.setViewSettings({ grid: gridToggle.checked });
+gridToggle.addEventListener("click", () => {
+    const next = !viewer.getViewSettings().grid;
+    viewer.setViewSettings({ grid: next });
+    gridToggle.classList.toggle("active", next);
     renderSelection();
     saveViewSettings();
 });
 
-axesToggle.addEventListener("change", () => {
-    viewer.setViewSettings({ axes: axesToggle.checked });
+axesToggle.addEventListener("click", () => {
+    const next = !viewer.getViewSettings().axes;
+    viewer.setViewSettings({ axes: next });
+    axesToggle.classList.toggle("active", next);
     renderSelection();
     saveViewSettings();
 });

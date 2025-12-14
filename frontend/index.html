@@ -11,6 +11,7 @@
         }
       }
     </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     <style>
         :root {
@@ -35,6 +36,10 @@
             color: var(--text);
         }
         h3, h4, h5 { margin: 0 0 6px 0; letter-spacing: 0.01em; }
+        .bi { line-height: 1; }
+        .rail .bi { font-size: 18px; }
+        .tool-column .bi, .render-panel .bi { font-size: 16px; }
+        .upload-panel .bi { font-size: 16px; }
 
         .app {
             display: grid;
@@ -205,80 +210,82 @@
             background: var(--panel-2);
             color: var(--text);
         }
-        #output {
-            max-height: 140px;
-            overflow: auto;
-            background: var(--panel-2);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 8px;
-            color: var(--muted);
-        }
-
-        .toolbar {
+        .toolbar { display: none; }
+        .tool-column,
+        .render-panel {
             position: absolute;
-            right: 16px;
-            bottom: 16px;
-            display: flex;
-            gap: 8px;
             background: rgba(15, 23, 42, 0.92);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 8px;
+            border-radius: 10px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-            flex-wrap: wrap;
-            max-width: 420px;
+            padding: 6px;
         }
-        .toolbar button, .toolbar input, .toolbar select {
-            padding: 8px 12px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            background: var(--panel-2);
-            color: var(--text);
-            cursor: pointer;
-        }
-        .toolbar button:hover { background: #152038; }
-        .toolbar .primary { border-color: var(--accent); background: var(--accent); color: #0b1226; font-weight: 600; }
-        .toolbar details {
-            width: 100%;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 6px 8px;
-            background: var(--panel-2);
-            color: var(--text);
-        }
-        .toolbar summary {
-            cursor: pointer;
-            font-weight: 600;
-        }
-        .toolbar .control-row {
-            display: grid;
-            grid-template-columns: 1fr auto;
+        .tool-column {
+            display: flex;
+            flex-direction: column;
             gap: 6px;
-            align-items: center;
-            margin: 6px 0;
-            font-size: 12px;
         }
-        .toolbar label {
+        .tool-column button,
+        .render-panel button {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--panel-2);
+            color: var(--text);
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            font-size: 14px;
+        }
+        .tool-column button:hover,
+        .render-panel button:hover { background: #152038; }
+        .tool-column button.active,
+        .render-panel button.active { border-color: var(--accent); background: var(--accent-soft); }
+        .render-panel {
+            display: grid;
+            grid-template-columns: repeat(3, 34px);
+            gap: 6px;
+        }
+        .render-panel .slider {
+            grid-column: 1 / -1;
             display: flex;
             gap: 6px;
             align-items: center;
+            color: var(--muted);
             font-size: 12px;
         }
-        .toolbar input[type="range"] {
-            width: 140px;
+        .render-panel input[type="range"] { width: 120px; }
+        .upload-panel {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            padding: 8px 12px;
+            background: rgba(15, 23, 42, 0.92);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
         }
+        .upload-panel label {
+            cursor: pointer;
+            color: var(--text);
+            font-weight: 600;
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
+        }
+        #fileInput { display: none; }
     </style>
 </head>
 
 <body>
     <div class="app">
         <div class="rail">
-            <button class="active" data-panel="issues" title="Issues">⚠️</button>
-            <button data-panel="components" title="Components">🧩</button>
-            <button data-panel="file" title="File">📁</button>
-            <button data-panel="tools" title="Tools">🛠</button>
-            <button data-panel="settings" title="Settings">⚙️</button>
+            <button class="active" data-panel="issues" title="Issues"><i class="bi bi-exclamation-triangle"></i></button>
+            <button data-panel="components" title="Components"><i class="bi bi-boxes"></i></button>
+            <button data-panel="file" title="File"><i class="bi bi-folder2-open"></i></button>
+            <button data-panel="tools" title="Tools"><i class="bi bi-tools"></i></button>
+            <button data-panel="settings" title="Settings"><i class="bi bi-gear"></i></button>
         </div>
 
         <div class="context">
@@ -304,10 +311,10 @@
                 </div>
             </div>
 
-            <div class="card panel" id="panel-file">
+            <div class="card panel hidden" id="panel-file">
                 <h4>File</h4>
                 <input type="file" id="fileInput" accept=".stl" />
-                <pre id="output"></pre>
+                <div class="meta" id="statusText"></div>
             </div>
 
             <div class="card panel" id="panel-issues">
@@ -348,53 +355,38 @@
 
         <div class="viewer-wrap">
             <div id="viewer"></div>
-            <div class="toolbar hidden" id="floatingToolbar">
-                <button id="prevBtn">Prev</button>
-                <button id="nextBtn">Next</button>
-                <button id="modeToggleBtn">Step</button>
-                <button id="focusBtn">Focus</button>
-                <button id="centerBtn">Center</button>
-                <button id="frameBtn">Frame</button>
-                <button id="highlightToggleBtn">Hide highlight</button>
-                <button class="primary" id="clearToolbarBtn">Clear</button>
-                <details id="viewDetails">
-                    <summary>View / Render</summary>
-                    <div class="control-row">
-                        <span>Edge threshold</span>
-                        <input type="range" id="edgeThreshold" min="0" max="60" value="12">
-                    </div>
-                    <div class="control-row">
-                        <span>Edges</span>
-                        <select id="edgeMode">
-                            <option value="feature">Feature</option>
-                            <option value="all">All</option>
-                            <option value="off">Off</option>
-                        </select>
-                    </div>
-                    <div class="control-row">
-                        <label><input type="checkbox" id="smoothShading" checked> Smooth shading</label>
-                    </div>
-                    <div class="control-row">
-                        <label><input type="checkbox" id="xrayToggle"> X-ray</label>
-                    </div>
-                    <div class="control-row">
-                        <label><input type="checkbox" id="wireframeToggle"> Wireframe</label>
-                    </div>
-                    <div class="control-row">
-                        <label><input type="checkbox" id="outlineToggle"> Outline</label>
-                    </div>
-                    <div class="control-row">
-                        <label><input type="checkbox" id="gridToggle" checked> Grid</label>
-                    </div>
-                    <div class="control-row">
-                        <label><input type="checkbox" id="axesToggle" checked> Axes</label>
-                    </div>
-                    <div class="control-row">
-                        <span>Exposure</span>
-                        <input type="range" id="exposureSlider" min="0.2" max="3" step="0.05" value="1.4">
-                    </div>
-                    <button id="resetViewBtn" style="width:100%;">Reset view settings</button>
-                </details>
+            <div class="upload-panel">
+                <label for="fileInput" title="Upload STL"><i class="bi bi-upload"></i> Upload STL</label>
+                <div class="meta" id="statusText"></div>
+            </div>
+            <div class="tool-column" id="cameraToolbar" style="right:16px; top:64px;">
+                <button id="frameBtn" title="Frame object"><i class="bi bi-bounding-box-circles"></i></button>
+                <button id="centerBtn" title="Center on grid"><i class="bi bi-arrows-move"></i></button>
+                <button id="focusBtn" title="Focus current"><i class="bi bi-bullseye"></i></button>
+            </div>
+            <div class="tool-column hidden" id="inspectToolbar" style="right:16px; top:214px;">
+                <button id="prevBtn" title="Previous (step)"><i class="bi bi-skip-backward"></i></button>
+                <button id="nextBtn" title="Next (step)"><i class="bi bi-skip-forward"></i></button>
+                <button id="modeToggleBtn" title="Toggle step/all"><i class="bi bi-shuffle"></i></button>
+                <button id="highlightToggleBtn" title="Toggle highlights"><i class="bi bi-lightbulb"></i></button>
+                <button id="clearToolbarBtn" title="Clear selection"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="render-panel hidden" id="renderToolbar" style="right:16px; bottom:16px;">
+                <button id="smoothShading" title="Smooth shading"><i class="bi bi-circle-half"></i></button>
+                <button id="wireframeToggle" title="Wireframe"><i class="bi bi-bounding-box"></i></button>
+                <button id="xrayToggle" title="X-ray"><i class="bi bi-layers"></i></button>
+                <button id="gridToggle" title="Show grid" class="active"><i class="bi bi-grid-3x3-gap"></i></button>
+                <button id="axesToggle" title="Show axes" class="active"><i class="bi bi-compass"></i></button>
+                <button id="edgeMode" title="Edge mode"><i class="bi bi-scissors"></i></button>
+                <div class="slider">
+                    <span title="Edge threshold"><i class="bi bi-bezier2"></i></span>
+                    <input type="range" id="edgeThreshold" min="0" max="60" value="12">
+                </div>
+                <div class="slider">
+                    <span title="Exposure"><i class="bi bi-sun"></i></span>
+                    <input type="range" id="exposureSlider" min="0.2" max="3" step="0.05" value="1.4">
+                </div>
+                <button id="resetViewBtn" title="Reset view settings"><i class="bi bi-arrow-counterclockwise"></i></button>
             </div>
         </div>
     </div>
