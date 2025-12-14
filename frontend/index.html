@@ -34,7 +34,7 @@
             flex: 1;
         }
 
-        #issues button {
+        #issues button, #componentsList button {
             display: block;
             width: 100%;
             text-align: left;
@@ -47,11 +47,11 @@
             transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
         }
 
-        #issues button:hover {
+        #issues button:hover, #componentsList button:hover {
             background: #f5f5f5;
         }
 
-        #issues button.active {
+        #issues button.active, #componentsList button.active {
             border-color: #2f7af0;
             background: #e7f0ff;
             box-shadow: 0 0 0 2px rgba(47, 122, 240, 0.2);
@@ -106,6 +106,34 @@
             width: 100%;
         }
 
+        #componentsSection {
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+
+        #componentsList {
+            margin-top: 6px;
+        }
+
+        #componentsControls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        #componentsControls button {
+            padding: 6px 10px;
+            cursor: pointer;
+        }
+
+        #autoLargestLabel {
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
         #output {
             max-height: 140px;
             overflow: auto;
@@ -136,6 +164,18 @@
                     <button id="nextBtn">Next</button>
                 </div>
             </div>
+        </div>
+
+        <div id="componentsSection">
+            <h4>Components</h4>
+            <div id="componentsControls">
+                <button id="showAllComponentsBtn">Show all components</button>
+                <label id="autoLargestLabel">
+                    <input type="checkbox" id="autoLargest">
+                    Auto show largest
+                </label>
+            </div>
+            <div id="componentsList"></div>
         </div>
     </div>
 

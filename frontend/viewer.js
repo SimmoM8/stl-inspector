@@ -13,6 +13,12 @@ export function createViewer(container) {
     let desiredTarget = new THREE.Vector3(0, 0, 0);
     let desiredCameraPos = new THREE.Vector3(0, 0, 3);
     let animatingFocus = false;
+    let basePositions = null; // Float32Array
+    let baseIndices = null;   // Uint32Array
+    let baseFaceCount = 0;
+    let baseVertexCount = 0;
+    let faceIndexMap = null;   // Map original face index -> current face index (or null for identity)
+    let vertexIndexMap = null; // Map original vertex index -> current vertex index (or null for identity)
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf2f2f2);
@@ -73,94 +79,65 @@ export function createViewer(container) {
     // Optional: constrain zoom distances once mesh is loaded
     // we’ll set min/max in setMeshFromApi after we know the bounding sphere
 
-    function setMeshFromApi(meshData) {
-        const { vertices, faces } = meshData;
+    function setIdentityMaps() {
+        faceIndexMap = null;
+        vertexIndexMap = null;
+    }
 
-        // positions: flat float array length = vertices.length * 3
-        const positions = new Float32Array(vertices.length * 3);
-        for (let i = 0; i < vertices.length; i++) {
-            positions[i * 3 + 0] = vertices[i][0];
-            positions[i * 3 + 1] = vertices[i][1];
-            positions[i * 3 + 2] = vertices[i][2];
-        }
+    function buildGeometryFromFaceList(faceList) {
+        const useFaces = faceList && faceList.length ? faceList : [...Array(baseFaceCount).keys()];
+        const positions = [];
+        const remappedIndices = new Uint32Array(useFaces.length * 3);
+        const vMap = new Map(); // original vertex -> new vertex
+        const fMap = new Map(); // original face -> new face
 
-        // indices: faces are triples of vertex indices
-        // Use Uint32Array to support meshes with > 65535 vertices
-        const indices = new Uint32Array(faces.length * 3);
-        for (let i = 0; i < faces.length; i++) {
-            indices[i * 3 + 0] = faces[i][0];
-            indices[i * 3 + 1] = faces[i][1];
-            indices[i * 3 + 2] = faces[i][2];
+        let outIndex = 0;
+        for (let faceCounter = 0; faceCounter < useFaces.length; faceCounter++) {
+            const faceIndex = useFaces[faceCounter];
+            const i0 = baseIndices[faceIndex * 3 + 0];
+            const i1 = baseIndices[faceIndex * 3 + 1];
+            const i2 = baseIndices[faceIndex * 3 + 2];
+            const verts = [i0, i1, i2];
+
+            for (let v = 0; v < 3; v++) {
+                const orig = verts[v];
+                let mapped = vMap.get(orig);
+                if (mapped === undefined) {
+                    mapped = vMap.size;
+                    vMap.set(orig, mapped);
+                    positions.push(
+                        basePositions[orig * 3 + 0],
+                        basePositions[orig * 3 + 1],
+                        basePositions[orig * 3 + 2]
+                    );
+                }
+                remappedIndices[outIndex++] = mapped;
+            }
+            fMap.set(faceIndex, faceCounter);
         }
 
         const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-        geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+        geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
+        geometry.setIndex(new THREE.BufferAttribute(remappedIndices, 1));
         geometry.computeVertexNormals();
         geometry.computeBoundingBox();
         geometry.computeBoundingSphere();
+        return { geometry, faceMap: fMap, vertexMap: vMap };
+    }
 
-        // Center the model at origin and optionally place it on the ground plane
-        const box = geometry.boundingBox;
-        const size = new THREE.Vector3();
-        box.getSize(size);
-
-        const center = new THREE.Vector3();
-        box.getCenter(center);
-
-        // Move geometry so its center is at origin
-        geometry.translate(-center.x, -center.y, -center.z);
-
-        // Recompute bounds after translation
-        geometry.computeBoundingBox();
-        geometry.computeBoundingSphere();
-
-        const material = new THREE.MeshStandardMaterial({
-            metalness: 0.0,
-            roughness: 0.8,
-        });
-
-        const mesh = new THREE.Mesh(geometry, material);
-
-        // Now place mesh so it sits on the ground (y = 0)
-        const box2 = geometry.boundingBox;
-        const minY = box2.min.y;
-
-        // Move mesh upward so lowest point touches y=0
-        mesh.position.y = -minY;
-
-        // Remove old mesh (edges are children of the mesh)
-        if (currentMesh) scene.remove(currentMesh);
-        currentEdges = null;
-
-        currentMesh = mesh;
-        scene.add(mesh);
-
-        // Build crisp edge lines
-        const edgesGeom = new THREE.EdgesGeometry(geometry, 20); // threshold angle in degrees
-        const edgesMat = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.6 });
-        currentEdges = new THREE.LineSegments(edgesGeom, edgesMat);
-        mesh.add(currentEdges);
-
-        // Fit camera to mesh
+    function fitHelpersAndCamera(geometry, mesh) {
         const sphere = geometry.boundingSphere;
         const r = sphere.radius;
-        const c = sphere.center;
 
-        // Resize helpers to match the model scale
         axesHelper.scale.setScalar(r);
         gridHelper.scale.setScalar(r);
         ground.scale.setScalar(r / 5);
-
-        // Keep ground at y=0
         ground.position.y = 0;
 
-        // After mesh.position.y has been set
         const target = new THREE.Vector3(0, mesh.position.y + r * 0.2, 0);
         controls.target.copy(target);
-
         camera.position.set(target.x, target.y + r * 0.5, target.z + r * 2.5);
-        camera.near = r / 100;
+        camera.near = Math.max(r / 100, 0.001);
         camera.far = r * 100;
         camera.updateProjectionMatrix();
 
@@ -170,6 +147,93 @@ export function createViewer(container) {
 
         desiredTarget.copy(target);
         desiredCameraPos.copy(camera.position);
+    }
+
+    function rebuildEdges() {
+        if (!currentMesh) return;
+        if (currentEdges) {
+            currentMesh.remove(currentEdges);
+            currentEdges.geometry.dispose();
+            currentEdges.material.dispose();
+        }
+        const edgesGeom = new THREE.EdgesGeometry(currentMesh.geometry, 20);
+        const edgesMat = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.6 });
+        currentEdges = new THREE.LineSegments(edgesGeom, edgesMat);
+        currentMesh.add(currentEdges);
+    }
+
+    function applyGeometry(faceList, refitCamera = true) {
+        if (!basePositions || !baseIndices) return;
+        const { geometry, faceMap, vertexMap: vMap } = buildGeometryFromFaceList(faceList);
+        const box = geometry.boundingBox;
+        const minY = box.min.y;
+
+        if (!currentMesh) {
+            const material = new THREE.MeshStandardMaterial({
+                metalness: 0.0,
+                roughness: 0.8,
+            });
+            currentMesh = new THREE.Mesh(geometry, material);
+            scene.add(currentMesh);
+        } else {
+            clearHighlights();
+            currentMesh.geometry.dispose();
+            currentMesh.geometry = geometry;
+        }
+
+        currentMesh.position.y = -minY;
+        rebuildEdges();
+
+        faceIndexMap = faceList && faceList.length ? faceMap : null;
+        vertexIndexMap = faceList && faceList.length ? vMap : null;
+
+        if (refitCamera) {
+            fitHelpersAndCamera(geometry, currentMesh);
+        } else {
+            // keep helpers roughly scaled to new geometry without moving camera/target
+            const sphere = geometry.boundingSphere;
+            const r = sphere.radius;
+            axesHelper.scale.setScalar(r);
+            gridHelper.scale.setScalar(r);
+            ground.scale.setScalar(r / 5);
+            ground.position.y = 0;
+        }
+    }
+
+    function setMeshFromApi(meshData) {
+        const { vertices, faces } = meshData;
+
+        // positions: flat float array length = vertices.length * 3
+        basePositions = new Float32Array(vertices.length * 3);
+        for (let i = 0; i < vertices.length; i++) {
+            basePositions[i * 3 + 0] = vertices[i][0];
+            basePositions[i * 3 + 1] = vertices[i][1];
+            basePositions[i * 3 + 2] = vertices[i][2];
+        }
+
+        // indices: faces are triples of vertex indices
+        baseIndices = new Uint32Array(faces.length * 3);
+        for (let i = 0; i < faces.length; i++) {
+            baseIndices[i * 3 + 0] = faces[i][0];
+            baseIndices[i * 3 + 1] = faces[i][1];
+            baseIndices[i * 3 + 2] = faces[i][2];
+        }
+        baseFaceCount = faces.length;
+        baseVertexCount = vertices.length;
+
+        applyGeometry(null, true);
+        setIdentityMaps();
+    }
+
+    function showComponent(faceIndices) {
+        if (!basePositions || !baseIndices) return;
+        applyGeometry(faceIndices, true);
+    }
+
+    function showAllComponents() {
+        if (!basePositions || !baseIndices) return;
+        applyGeometry(null, true);
+        setIdentityMaps();
     }
 
     function onResize() {
@@ -243,8 +307,37 @@ export function createViewer(container) {
         }
     }
 
+    function mapFaceList(faceIndices) {
+        if (!faceIndices || !faceIndices.length) return [];
+        if (!faceIndexMap) return faceIndices.slice();
+        const out = [];
+        for (const f of faceIndices) {
+            const mapped = faceIndexMap.get(f);
+            if (mapped !== undefined && mapped !== null && mapped >= 0) {
+                out.push(mapped);
+            }
+        }
+        return out;
+    }
+
+    function mapEdgePairs(edgePairs) {
+        if (!edgePairs || !edgePairs.length) return [];
+        if (!vertexIndexMap) return edgePairs.map((e) => [...e]);
+        const out = [];
+        for (const [a, b] of edgePairs) {
+            const ma = vertexIndexMap.get(a);
+            const mb = vertexIndexMap.get(b);
+            if (ma !== undefined && mb !== undefined && ma >= 0 && mb >= 0) {
+                out.push([ma, mb]);
+            }
+        }
+        return out;
+    }
+
     function highlightFaces(faceIndices) {
         if (!currentMesh) return;
+        const mappedFaces = mapFaceList(faceIndices);
+        if (!mappedFaces.length) return;
 
         const baseGeom = currentMesh.geometry;
         const posAttr = baseGeom.getAttribute("position");
@@ -255,10 +348,10 @@ export function createViewer(container) {
 
         // We'll create non-indexed triangles for simplicity:
         // each face contributes 3 vertices = 9 floats
-        const outPositions = new Float32Array(faceIndices.length * 9);
+        const outPositions = new Float32Array(mappedFaces.length * 9);
 
-        for (let i = 0; i < faceIndices.length; i++) {
-            const faceIndex = faceIndices[i];
+        for (let i = 0; i < mappedFaces.length; i++) {
+            const faceIndex = mappedFaces[i];
 
             const i0 = indexAttr.getX(faceIndex * 3 + 0);
             const i1 = indexAttr.getX(faceIndex * 3 + 1);
@@ -290,79 +383,19 @@ export function createViewer(container) {
         currentMesh.add(highlightMesh);
     }
 
-    function faceCentroid(faceIndex) {
-        const baseGeom = currentMesh.geometry;
-        const posAttr = baseGeom.getAttribute("position");
-        const indexAttr = baseGeom.getIndex();
-
-        const i0 = indexAttr.getX(faceIndex * 3 + 0);
-        const i1 = indexAttr.getX(faceIndex * 3 + 1);
-        const i2 = indexAttr.getX(faceIndex * 3 + 2);
-
-        const v0 = new THREE.Vector3(posAttr.getX(i0), posAttr.getY(i0), posAttr.getZ(i0));
-        const v1 = new THREE.Vector3(posAttr.getX(i1), posAttr.getY(i1), posAttr.getZ(i1));
-        const v2 = new THREE.Vector3(posAttr.getX(i2), posAttr.getY(i2), posAttr.getZ(i2));
-
-        // Centroid = average of the 3 vertices
-        const centroid = new THREE.Vector3();
-        centroid.add(v0).add(v1).add(v2).multiplyScalar(1 / 3);
-
-        return currentMesh.localToWorld(centroid);
-    }
-
-    function edgeMidpoint(edgePair) {
-        const baseGeom = currentMesh.geometry;
-        const posAttr = baseGeom.getAttribute("position");
-        const [a, b] = edgePair;
-
-        const va = new THREE.Vector3(posAttr.getX(a), posAttr.getY(a), posAttr.getZ(a));
-        const vb = new THREE.Vector3(posAttr.getX(b), posAttr.getY(b), posAttr.getZ(b));
-
-        // Midpoint of the two vertices
-        const mid = new THREE.Vector3().addVectors(va, vb).multiplyScalar(0.5);
-        return currentMesh.localToWorld(mid);
-    }
-
-    function moveCameraToPoint(point) {
-        if (!currentMesh) return;
-        const r = currentMesh.geometry.boundingSphere
-            ? currentMesh.geometry.boundingSphere.radius
-            : 1;
-
-        desiredTarget.copy(point);
-
-        // Offset upward and backwards by a fraction of mesh radius to keep framing comfortable
-        const offset = new THREE.Vector3(0, r * 0.3, r * 1.2);
-        desiredCameraPos.copy(point).add(offset);
-    }
-
-    function focusFace(faceIndex) {
-        if (!currentMesh || faceIndex == null) return;
-        clearHighlights();
-        highlightFaces([faceIndex]);
-        const centroid = faceCentroid(faceIndex);
-        moveCameraToPoint(centroid);
-    }
-
-    function focusEdge(edgePair) {
-        if (!currentMesh || !edgePair) return;
-        clearHighlights();
-        highlightEdgePairs([edgePair]);
-        const mid = edgeMidpoint(edgePair);
-        moveCameraToPoint(mid);
-    }
-
     function highlightEdgePairs(edgePairs) {
         if (!currentMesh) return;
+        const mappedEdges = mapEdgePairs(edgePairs);
+        if (!mappedEdges.length) return;
 
         const baseGeom = currentMesh.geometry;
         const posAttr = baseGeom.getAttribute("position");
 
         // Flatten into [x1,y1,z1, x2,y2,z2, ...]
-        const positions = new Float32Array(edgePairs.length * 6);
+        const positions = new Float32Array(mappedEdges.length * 6);
 
-        for (let i = 0; i < edgePairs.length; i++) {
-            const [a, b] = edgePairs[i];
+        for (let i = 0; i < mappedEdges.length; i++) {
+            const [a, b] = mappedEdges[i];
 
             const o = i * 6;
             positions[o + 0] = posAttr.getX(a);
@@ -451,7 +484,9 @@ export function createViewer(container) {
         if (!currentMesh || faceIndex == null) return;
         clearHighlights();
         highlightFaces([faceIndex]);
-        const centroid = faceCentroid(faceIndex);
+        const mapped = mapFaceList([faceIndex]);
+        if (!mapped.length) return;
+        const centroid = faceCentroid(mapped[0]);
         moveCameraToPoint(centroid);
         controls.update();
     }
@@ -460,7 +495,9 @@ export function createViewer(container) {
         if (!currentMesh || !edgePair) return;
         clearHighlights();
         highlightEdgePairs([edgePair]);
-        const mid = edgeMidpoint(edgePair);
+        const mapped = mapEdgePairs([edgePair]);
+        if (!mapped.length) return;
+        const mid = edgeMidpoint(mapped[0]);
         moveCameraToPoint(mid);
         controls.update();
     }
@@ -507,6 +544,8 @@ export function createViewer(container) {
         showIssue,
         showIssueAll,
         showIssueItem,
+        showComponent,
+        showAllComponents,
         clearHighlights,
         focusFace,
         focusEdge
