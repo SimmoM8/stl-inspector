@@ -2,7 +2,11 @@ import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 
 export function createViewer(container) {
+    let currentMesh = null;
+    let currentEdges = null;
+
     const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf2f2f2);
 
     const camera = new THREE.PerspectiveCamera(
         60,
@@ -13,20 +17,33 @@ export function createViewer(container) {
     camera.position.set(0, 0, 3);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
 
     // Simple lighting
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-    dir.position.set(5, 5, 5);
-    scene.add(dir);
+    const dir1 = new THREE.DirectionalLight(0xffffff, 0.8);
+    dir1.position.set(5, 5, 5);
+    scene.add(dir1);
+
+    // Second light to reduce harsh shadows
+    const dir2 = new THREE.DirectionalLight(0xffffff, 0.4);
+    dir2.position.set(-5, -5, 3);
+    scene.add(dir2);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
 
-    // We'll replace this whenever a new file is loaded
-    let currentMesh = null;
+    controls.rotateSpeed = 0.6;
+    controls.zoomSpeed = 1.0;
+    controls.panSpeed = 0.6;
+
+    controls.screenSpacePanning = true;
+
+    // Optional: constrain zoom distances once mesh is loaded
+    // we’ll set min/max in setMeshFromApi after we know the bounding sphere
 
     function setMeshFromApi(meshData) {
         const { vertices, faces } = meshData;
@@ -62,16 +79,26 @@ export function createViewer(container) {
 
         const mesh = new THREE.Mesh(geometry, material);
 
-        // Remove old mesh if present
+        // Remove old mesh/edges if present
         if (currentMesh) scene.remove(currentMesh);
+        if (currentEdges) scene.remove(currentEdges);
+
         currentMesh = mesh;
         scene.add(mesh);
+
+        // Build crisp edge lines
+        const edgesGeom = new THREE.EdgesGeometry(geometry, 20); // threshold angle in degrees
+        const edgesMat = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.6 });
+        currentEdges = new THREE.LineSegments(edgesGeom, edgesMat);
+        scene.add(currentEdges);
 
         // Fit camera to mesh
         const sphere = geometry.boundingSphere;
         const r = sphere.radius;
         const c = sphere.center;
 
+        controls.minDistance = r * 0.2;
+        controls.maxDistance = r * 10;
         controls.target.copy(c);
         camera.position.set(c.x, c.y, c.z + r * 2.5);
         camera.near = r / 100;
@@ -83,6 +110,7 @@ export function createViewer(container) {
     function onResize() {
         const w = container.clientWidth;
         const h = container.clientHeight;
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setSize(w, h);
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
