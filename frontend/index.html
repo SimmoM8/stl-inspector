@@ -1,36 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <title>STL Inspector</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: sans-serif;
-      display: flex;
-      height: 100vh;
-    }
-    #sidebar {
-      width: 300px;
-      padding: 12px;
-      border-right: 1px solid #ccc;
-      box-sizing: border-box;
-    }
-    #viewer {
-      flex: 1;
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <title>STL Inspector</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+        }
+      }
+    </script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: sans-serif;
+            display: flex;
+            height: 100vh;
+        }
+
+        #sidebar {
+            width: 300px;
+            padding: 12px;
+            border-right: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+
+        #viewer {
+            flex: 1;
+        }
+    </style>
 </head>
+
 <body>
 
-  <div id="sidebar">
-    <h3>STL Inspector</h3>
-    <input type="file" id="fileInput" accept=".stl" />
-    <pre id="output"></pre>
-  </div>
+    <div id="sidebar">
+        <h3>STL Inspector</h3>
+        <input type="file" id="fileInput" accept=".stl" />
+        <pre id="output"></pre>
+    </div>
 
-  <div id="viewer"></div>
+    <div id="viewer"></div>
 
-  <script type="module" src="main.js"></script>
+    <script type="module" src="main.js"></script>
 </body>
+
 </html>

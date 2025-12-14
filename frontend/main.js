@@ -1,5 +1,10 @@
+import { createViewer } from "./viewer.js";
+
 const fileInput = document.getElementById("fileInput");
 const output = document.getElementById("output");
+
+const viewerContainer = document.getElementById("viewer");
+const viewer = createViewer(viewerContainer);
 
 fileInput.addEventListener("change", async () => {
     const file = fileInput.files[0];
@@ -22,7 +27,7 @@ fileInput.addEventListener("change", async () => {
 
         const data = await res.json();
         output.textContent = JSON.stringify(data.summary, null, 2);
-
+        viewer.setMeshFromApi(data.mesh);
         console.log("Full response:", data);
     } catch (err) {
         output.textContent = "Error: " + err.message;
