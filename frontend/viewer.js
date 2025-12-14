@@ -433,14 +433,16 @@ export function createViewer(container) {
 
     function moveCameraToPoint(point) {
         if (!currentMesh) return;
-        const r = currentMesh.geometry.boundingSphere
-            ? currentMesh.geometry.boundingSphere.radius
-            : 1;
-
+        // Preserve current camera offset so zoom/orientation stay the same;
+        // only pan the view to the target point.
+        const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
+        if (offset.lengthSq() < 1e-6) {
+            const r = currentMesh.geometry.boundingSphere
+                ? currentMesh.geometry.boundingSphere.radius
+                : 1;
+            offset.set(0, r * 0.3, r * 1.2);
+        }
         desiredTarget.copy(point);
-
-        // Offset upward and backwards by a fraction of mesh radius to keep framing comfortable
-        const offset = new THREE.Vector3(0, r * 0.3, r * 1.2);
         desiredCameraPos.copy(point).add(offset);
         animatingFocus = true;
     }

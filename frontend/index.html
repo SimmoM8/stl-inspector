@@ -99,11 +99,11 @@
             cursor: not-allowed;
         }
 
-        #modeToggle {
-            display: flex;
-            gap: 12px;
+        #showAllBtn {
             margin-top: 8px;
-            font-size: 13px;
+            padding: 6px 10px;
+            cursor: pointer;
+            width: 100%;
         }
 
         #output {
@@ -129,10 +129,7 @@
                 <h5 id="issueTitle">No issue selected</h5>
                 <div class="meta" id="issueMeta"></div>
                 <div class="indices" id="issueIndices"></div>
-                <div id="modeToggle">
-                    <label><input type="radio" name="mode" value="all" checked> Show all</label>
-                    <label><input type="radio" name="mode" value="step"> Step through</label>
-                </div>
+                <button id="showAllBtn">Show all</button>
                 <div id="pager">
                     <button id="prevBtn">Prev</button>
                     <span id="pageInfo">–</span>

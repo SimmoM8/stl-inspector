@@ -15,13 +15,13 @@ const issueIndices = document.getElementById("issueIndices");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
 const pageInfo = document.getElementById("pageInfo");
-const modeInputs = document.querySelectorAll('input[name="mode"]');
+const showAllBtn = document.getElementById("showAllBtn");
 
 const state = {
     issues: [],
     selectedIndex: -1,
     itemIndex: 0,
-    mode: "all",
+    mode: "step",
 };
 
 const issueButtons = [];
@@ -40,12 +40,6 @@ function updateActiveButtons() {
     });
 }
 
-function updateModeInputs() {
-    modeInputs.forEach((input) => {
-        input.checked = input.value === state.mode;
-    });
-}
-
 function renderDetails(issue, meta) {
     if (!issue) {
         issueTitle.textContent = "No issue selected";
@@ -54,6 +48,7 @@ function renderDetails(issue, meta) {
         pageInfo.textContent = "–";
         prevBtn.disabled = true;
         nextBtn.disabled = true;
+        showAllBtn.disabled = true;
         return;
     }
 
@@ -68,12 +63,12 @@ function renderDetails(issue, meta) {
     pageInfo.textContent = meta.pageLabel;
     prevBtn.disabled = meta.disableNav;
     nextBtn.disabled = meta.disableNav;
+    showAllBtn.disabled = false;
 }
 
 function renderSelection() {
     const issue = state.issues[state.selectedIndex];
     updateActiveButtons();
-    updateModeInputs();
 
     if (!issue) {
         viewer.clearHighlights();
@@ -92,9 +87,10 @@ function renderSelection() {
 
     if (state.mode === "all") {
         viewer.showIssueAll(issue);
-        pageLabel = "All items";
-        disableNav = true;
-    } else if (state.mode === "step") {
+        pageLabel = total ? `All ${total} items` : "All items";
+        description = total ? "Highlighting all items for this issue." : description;
+        disableNav = total <= 1;
+    } else {
         if (kind === "face" && total) {
             const faceIndex = items[safeIndex];
             pageLabel = `Face ${safeIndex + 1} of ${total}`;
@@ -110,8 +106,6 @@ function renderSelection() {
         } else {
             viewer.showIssueAll(issue);
         }
-    } else {
-        viewer.showIssueAll(issue);
     }
 
     renderDetails(issue, {
@@ -124,11 +118,12 @@ function renderSelection() {
 function selectIssue(idx) {
     state.selectedIndex = idx;
     state.itemIndex = 0;
-    state.mode = "all";
+    state.mode = "step";
     renderSelection();
 }
 
 function moveItem(delta) {
+    state.mode = "step"; // auto-switch to stepping when iterating
     if (state.selectedIndex < 0) return;
     const issue = state.issues[state.selectedIndex];
     const { items } = getIssueItems(issue);
@@ -138,20 +133,7 @@ function moveItem(delta) {
     renderSelection();
 }
 
-function setMode(mode) {
-    state.mode = mode === "step" ? "step" : "all";
-    renderSelection();
-}
-
 renderSelection();
-
-modeInputs.forEach((input) => {
-    input.addEventListener("change", (e) => {
-        if (e.target.checked) {
-            setMode(e.target.value);
-        }
-    });
-});
 
 fileInput.addEventListener("change", async () => {
     const file = fileInput.files[0];
@@ -182,7 +164,7 @@ fileInput.addEventListener("change", async () => {
         state.issues = issues;
         state.selectedIndex = -1;
         state.itemIndex = 0;
-        state.mode = "all";
+        state.mode = "step";
         renderSelection();
 
         issues.forEach((issue, idx) => {
@@ -209,9 +191,14 @@ clearBtn.addEventListener("click", () => {
     viewer.clearHighlights();
     state.selectedIndex = -1;
     state.itemIndex = 0;
-    state.mode = "all";
+    state.mode = "step";
     renderSelection();
 });
 
 prevBtn.addEventListener("click", () => moveItem(-1));
 nextBtn.addEventListener("click", () => moveItem(1));
+
+showAllBtn.addEventListener("click", () => {
+    state.mode = "all";
+    renderSelection();
+});
