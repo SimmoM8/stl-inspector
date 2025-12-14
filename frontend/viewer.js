@@ -39,6 +39,8 @@ export function createViewer(container) {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf9fafc);
+    const pivot = new THREE.Group();
+    scene.add(pivot);
 
     // Helpers
     const axesHelper = new THREE.AxesHelper(1); // size will be updated after mesh loads
@@ -232,7 +234,7 @@ export function createViewer(container) {
                 color: baseMeshColor,
             });
             currentMesh = new THREE.Mesh(geometry, material);
-            scene.add(currentMesh);
+            pivot.add(currentMesh);
         } else {
             clearHighlights();
             currentMesh.geometry.dispose();
@@ -556,6 +558,31 @@ export function createViewer(container) {
         animatingFocus = true;
     }
 
+    function centerView() {
+        if (!currentMesh) return;
+        if (!currentMesh.geometry.boundingBox) currentMesh.geometry.computeBoundingBox();
+        const center = new THREE.Vector3();
+        currentMesh.geometry.boundingBox.getCenter(center);
+        const minY = currentMesh.geometry.boundingBox.min.y;
+
+        // Place mesh center at origin in X/Z and rest it on the grid in Y (no cumulative drift)
+        currentMesh.position.set(-center.x, -minY, -center.z);
+
+        fitHelpersAndCamera(currentMesh.geometry, currentMesh);
+    }
+
+    function frameView() {
+        if (!currentMesh || !currentMesh.geometry.boundingSphere) return;
+        const sphere = currentMesh.geometry.boundingSphere;
+        const r = sphere.radius;
+        const center = sphere.center.clone().add(currentMesh.position);
+
+        const offset = new THREE.Vector3(0, r * 0.2, r * 2.5);
+        desiredTarget.copy(center);
+        desiredCameraPos.copy(center).add(offset);
+        animatingFocus = true;
+    }
+
     function focusFace(faceIndex) {
         if (!currentMesh || faceIndex == null) return;
         clearHighlights();
@@ -633,14 +660,14 @@ export function createViewer(container) {
 
     function resetViewSettings() {
         setViewSettings({
-            edgeThreshold: 20,
+            edgeThreshold: 12,
             edgeMode: "feature",
             smoothShading: true,
             wireframe: false,
             xray: false,
             grid: true,
             axes: true,
-            exposure: 1.0,
+            exposure: 1.6,
         });
     }
 
@@ -656,6 +683,8 @@ export function createViewer(container) {
         focusEdge,
         setViewSettings,
         getViewSettings,
-        resetViewSettings
+        resetViewSettings,
+        centerView,
+        frameView
     };
 }

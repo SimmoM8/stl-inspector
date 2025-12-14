@@ -23,6 +23,8 @@ const panels = document.querySelectorAll(".panel");
 const toolbar = document.getElementById("floatingToolbar");
 const modeToggleBtn = document.getElementById("modeToggleBtn");
 const focusBtn = document.getElementById("focusBtn");
+const centerBtn = document.getElementById("centerBtn");
+const frameBtn = document.getElementById("frameBtn");
 const highlightToggleBtn = document.getElementById("highlightToggleBtn");
 const clearToolbarBtn = document.getElementById("clearToolbarBtn");
 const summaryWatertight = document.getElementById("summaryWatertight");
@@ -481,6 +483,14 @@ modeToggleBtn.addEventListener("click", () => {
 
 focusBtn.addEventListener("click", () => {
     renderSelection(); // re-run focus logic for current selection
+});
+
+centerBtn.addEventListener("click", () => {
+    viewer.centerView();
+});
+
+frameBtn.addEventListener("click", () => {
+    viewer.frameView();
 });
 
 highlightToggleBtn.addEventListener("click", () => {
