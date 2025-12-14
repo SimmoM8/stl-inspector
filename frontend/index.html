@@ -25,20 +25,110 @@
             padding: 12px;
             border-right: 1px solid #ccc;
             box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
 
         #viewer {
             flex: 1;
         }
+
+        #issues button {
+            display: block;
+            width: 100%;
+            text-align: left;
+            margin: 6px 0;
+            padding: 8px;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        #issues button:hover {
+            background: #f5f5f5;
+        }
+
+        #issues button.active {
+            border-color: #2f7af0;
+            background: #e7f0ff;
+            box-shadow: 0 0 0 2px rgba(47, 122, 240, 0.2);
+        }
+
+        #issueDetails {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 10px;
+            background: #fafafa;
+            min-height: 110px;
+        }
+
+        #issueDetails h5 {
+            margin: 0 0 6px 0;
+        }
+
+        #issueDetails .meta {
+            font-size: 12px;
+            color: #555;
+            margin-bottom: 6px;
+        }
+
+        #issueDetails .indices {
+            font-size: 12px;
+            color: #333;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        #pager {
+            margin-top: 8px;
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        #pager button {
+            padding: 6px 10px;
+            cursor: pointer;
+        }
+
+        #pager button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #output {
+            max-height: 140px;
+            overflow: auto;
+        }
     </style>
 </head>
 
 <body>
-
     <div id="sidebar">
         <h3>STL Inspector</h3>
         <input type="file" id="fileInput" accept=".stl" />
         <pre id="output"></pre>
+
+        <h4>Issues</h4>
+        <div id="issues"></div>
+        <button id="clearBtn">Clear highlight</button>
+
+        <div>
+            <h4>Selection</h4>
+            <div id="issueDetails">
+                <h5 id="issueTitle">No issue selected</h5>
+                <div class="meta" id="issueMeta"></div>
+                <div class="indices" id="issueIndices"></div>
+                <div id="pager">
+                    <button id="prevBtn">Prev</button>
+                    <span id="pageInfo">–</span>
+                    <button id="nextBtn">Next</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div id="viewer"></div>

@@ -1,9 +1,15 @@
-import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+import * as THREE from "three";
 import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+import { Line2 } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/Line2.js";
+import { LineMaterial } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineMaterial.js";
+import { LineGeometry } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineGeometry.js";
 
 export function createViewer(container) {
     let currentMesh = null;
     let currentEdges = null;
+    let highlightMesh = null;
+    let highlightEdges = null;
+    let highlightLineMaterial = null;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf2f2f2);
@@ -165,6 +171,12 @@ export function createViewer(container) {
         renderer.setSize(w, h);
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
+        if (highlightLineMaterial) {
+            highlightLineMaterial.resolution.set(
+                renderer.domElement.width,
+                renderer.domElement.height
+            );
+        }
     }
     window.addEventListener("resize", onResize);
 
@@ -175,5 +187,129 @@ export function createViewer(container) {
     }
     animate();
 
-    return { setMeshFromApi };
+    function clearHighlights() {
+        if (highlightMesh) {
+            if (highlightMesh && highlightMesh.parent) {
+                highlightMesh.parent.remove(highlightMesh);
+            } highlightMesh.geometry.dispose();
+            highlightMesh.material.dispose();
+            highlightMesh = null;
+        }
+        if (highlightEdges) {
+            if (highlightEdges && highlightEdges.parent) {
+                highlightEdges.parent.remove(highlightEdges);
+            } highlightEdges.geometry.dispose();
+            highlightEdges.material.dispose();
+            highlightEdges = null;
+        }
+    }
+
+    function highlightFaces(faceIndices) {
+        if (!currentMesh) return;
+
+        const baseGeom = currentMesh.geometry;
+        const posAttr = baseGeom.getAttribute("position");
+        const indexAttr = baseGeom.getIndex();
+
+        // Build a NEW geometry containing ONLY the highlighted triangles
+        const highlightGeometry = new THREE.BufferGeometry();
+
+        // We'll create non-indexed triangles for simplicity:
+        // each face contributes 3 vertices = 9 floats
+        const outPositions = new Float32Array(faceIndices.length * 9);
+
+        for (let i = 0; i < faceIndices.length; i++) {
+            const faceIndex = faceIndices[i];
+
+            const i0 = indexAttr.getX(faceIndex * 3 + 0);
+            const i1 = indexAttr.getX(faceIndex * 3 + 1);
+            const i2 = indexAttr.getX(faceIndex * 3 + 2);
+
+            const v0x = posAttr.getX(i0), v0y = posAttr.getY(i0), v0z = posAttr.getZ(i0);
+            const v1x = posAttr.getX(i1), v1y = posAttr.getY(i1), v1z = posAttr.getZ(i1);
+            const v2x = posAttr.getX(i2), v2y = posAttr.getY(i2), v2z = posAttr.getZ(i2);
+
+            const o = i * 9;
+            outPositions[o + 0] = v0x; outPositions[o + 1] = v0y; outPositions[o + 2] = v0z;
+            outPositions[o + 3] = v1x; outPositions[o + 4] = v1y; outPositions[o + 5] = v1z;
+            outPositions[o + 6] = v2x; outPositions[o + 7] = v2y; outPositions[o + 8] = v2z;
+        }
+
+        highlightGeometry.setAttribute("position", new THREE.BufferAttribute(outPositions, 3));
+        highlightGeometry.computeVertexNormals();
+
+        const highlightMaterial = new THREE.MeshBasicMaterial({
+            color: 0xff0000,
+            transparent: true,
+            opacity: 0.85,
+            depthTest: false,      // draw on top
+            side: THREE.DoubleSide // show even if normals are flipped
+        });
+
+        highlightMesh = new THREE.Mesh(highlightGeometry, highlightMaterial);
+        highlightMesh.renderOrder = 999; // draw after the base mesh
+        currentMesh.add(highlightMesh);
+    }
+
+    function highlightEdgePairs(edgePairs) {
+        if (!currentMesh) return;
+
+        const baseGeom = currentMesh.geometry;
+        const posAttr = baseGeom.getAttribute("position");
+
+        // Flatten into [x1,y1,z1, x2,y2,z2, ...]
+        const positions = new Float32Array(edgePairs.length * 6);
+
+        for (let i = 0; i < edgePairs.length; i++) {
+            const [a, b] = edgePairs[i];
+
+            const o = i * 6;
+            positions[o + 0] = posAttr.getX(a);
+            positions[o + 1] = posAttr.getY(a);
+            positions[o + 2] = posAttr.getZ(a);
+
+            positions[o + 3] = posAttr.getX(b);
+            positions[o + 4] = posAttr.getY(b);
+            positions[o + 5] = posAttr.getZ(b);
+        }
+
+        const geom = new LineGeometry();
+        geom.setPositions(positions);
+
+        highlightLineMaterial = new LineMaterial({
+            color: 0xff0000,
+            linewidth: 4,        // pixels (this is what we want)
+            transparent: true,
+            opacity: 1.0,
+            depthTest: false      // draw on top
+        });
+
+        // IMPORTANT: LineMaterial needs renderer resolution
+        highlightLineMaterial.resolution.set(
+            renderer.domElement.width,
+            renderer.domElement.height
+        );
+
+        highlightEdges = new Line2(geom, highlightLineMaterial);
+        highlightEdges.computeLineDistances();
+        highlightEdges.renderOrder = 1000;
+
+        currentMesh.add(highlightEdges);
+    }
+
+    function showIssue(issue) {
+        clearHighlights();
+
+        if (!issue) return;
+
+        if (issue.faces && issue.faces.length) {
+            highlightFaces(issue.faces);
+        }
+
+        if (issue.edges && issue.edges.length) {
+            highlightEdgePairs(issue.edges);
+        }
+    }
+
+    return { setMeshFromApi, showIssue, clearHighlights };
 }
