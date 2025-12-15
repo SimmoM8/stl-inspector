@@ -29,7 +29,7 @@ export function createViewer(container) {
     const viewSettings = {
         edgeThreshold: 12,
         edgeMode: "feature", // feature | all | off
-        smoothShading: true,
+        cadShading: true,
         wireframe: false,
         xray: false,
         grid: true,
@@ -81,16 +81,20 @@ export function createViewer(container) {
     const fxaaPass = new ShaderPass(FXAAShader);
     composer.addPass(fxaaPass);
 
-    // Simple lighting
-    scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-    const dir1 = new THREE.DirectionalLight(0xffffff, 1.1);
-    dir1.position.set(5, 5, 5);
-    scene.add(dir1);
+    // CAD-style lighting rig
+    const hemi = new THREE.HemisphereLight(0xb0c4ff, 0x2a2f38, 0.6);
+    scene.add(hemi);
 
-    // Second light to reduce harsh shadows
-    const dir2 = new THREE.DirectionalLight(0xffffff, 0.6);
-    dir2.position.set(-5, -5, 3);
-    scene.add(dir2);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    keyLight.position.set(4, 6, 4);
+    scene.add(keyLight);
+
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.7);
+    rimLight.position.set(-4, 3, -2);
+    scene.add(rimLight);
+
+    const headLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    scene.add(headLight);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -151,25 +155,25 @@ export function createViewer(container) {
         geometry.setIndex(new THREE.BufferAttribute(remappedIndices, 1));
 
         let newVertexMap = vMap;
-        if (viewSettings.smoothShading) {
-            // Weld close vertices before computing normals to smooth shading seams
-            geometry = BufferGeometryUtils.mergeVertices(geometry, 1e-5);
-            // Remap original vertices to merged indices
-            const idx = geometry.getIndex();
-            newVertexMap = new Map();
-            for (let faceCounter = 0; faceCounter < useFaces.length; faceCounter++) {
-                const faceIndex = useFaces[faceCounter];
-                const i0 = baseIndices[faceIndex * 3 + 0];
-                const i1 = baseIndices[faceIndex * 3 + 1];
-                const i2 = baseIndices[faceIndex * 3 + 2];
-                const base = faceCounter * 3;
-                newVertexMap.set(i0, idx.getX(base + 0));
-                newVertexMap.set(i1, idx.getX(base + 1));
-                newVertexMap.set(i2, idx.getX(base + 2));
-            }
+        // Weld close vertices but let crease-angle normals preserve sharp edges
+        geometry = BufferGeometryUtils.mergeVertices(geometry, 1e-5);
+
+        // Remap original vertices to merged indices
+        const idx = geometry.getIndex();
+        newVertexMap = new Map();
+        for (let faceCounter = 0; faceCounter < useFaces.length; faceCounter++) {
+            const faceIndex = useFaces[faceCounter];
+            const i0 = baseIndices[faceIndex * 3 + 0];
+            const i1 = baseIndices[faceIndex * 3 + 1];
+            const i2 = baseIndices[faceIndex * 3 + 2];
+            const base = faceCounter * 3;
+            newVertexMap.set(i0, idx.getX(base + 0));
+            newVertexMap.set(i1, idx.getX(base + 1));
+            newVertexMap.set(i2, idx.getX(base + 2));
         }
 
-        geometry.computeVertexNormals();
+        const creaseAngle = viewSettings.cadShading ? THREE.MathUtils.degToRad(30) : Math.PI;
+        geometry = BufferGeometryUtils.toCreasedNormals(geometry, creaseAngle);
         geometry.computeBoundingBox();
         geometry.computeBoundingSphere();
         return { geometry, faceMap: fMap, vertexMap: newVertexMap };
@@ -346,6 +350,9 @@ export function createViewer(container) {
     function animate() {
         requestAnimationFrame(animate);
         renderer.toneMappingExposure = Math.max(0.2, viewSettings.exposure);
+        headLight.position.copy(camera.position);
+        headLight.target.position.copy(controls.target);
+        headLight.target.updateMatrixWorld();
         if (animatingFocus) {
             camera.position.lerp(desiredCameraPos, 0.15);
             controls.target.lerp(desiredTarget, 0.18);
@@ -655,7 +662,7 @@ export function createViewer(container) {
         Object.assign(viewSettings, partial);
         renderer.toneMappingExposure = Math.max(0.2, viewSettings.exposure);
 
-        if (partial.smoothShading !== undefined) {
+        if (partial.cadShading !== undefined) {
             applyGeometry(lastFaceList, false);
         } else {
             rebuildEdges();
@@ -671,7 +678,7 @@ export function createViewer(container) {
         setViewSettings({
             edgeThreshold: 12,
             edgeMode: "feature",
-            smoothShading: true,
+            cadShading: true,
             wireframe: false,
             xray: false,
             grid: true,

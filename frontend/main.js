@@ -323,7 +323,7 @@ function syncViewControls() {
     const v = viewer.getViewSettings();
     edgeThresholdInput.value = v.edgeThreshold;
     edgeModeSelect.dataset.mode = v.edgeMode;
-    smoothShadingBtn.classList.toggle("active", v.smoothShading);
+    smoothShadingBtn.classList.toggle("active", v.cadShading);
     xrayToggle.classList.toggle("active", v.xray);
     wireframeToggle.classList.toggle("active", v.wireframe);
     gridToggle.classList.toggle("active", v.grid);
@@ -563,8 +563,8 @@ edgeModeSelect.addEventListener("click", () => {
 });
 
 smoothShadingBtn.addEventListener("click", () => {
-    const next = !viewer.getViewSettings().smoothShading;
-    viewer.setViewSettings({ smoothShading: next });
+    const next = !viewer.getViewSettings().cadShading;
+    viewer.setViewSettings({ cadShading: next });
     smoothShadingBtn.classList.toggle("active", next);
     renderSelection();
     saveViewSettings();
