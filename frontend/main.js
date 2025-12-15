@@ -1,5 +1,6 @@
 import { createViewer } from "./viewer.js";
 import { getAnalyzeUrl, DEFAULT_VIEW_SETTINGS } from "./config.js";
+import { state, resetState } from "./state.js";
 
 const fileInput = document.getElementById("fileInput");
 const viewerContainer = document.getElementById("viewer");
@@ -45,24 +46,9 @@ const axesToggle = document.getElementById("axesToggle");
 const exposureSlider = document.getElementById("exposureSlider");
 const resetViewBtn = document.getElementById("resetViewBtn");
 
-const state = {
-    issues: [],
-    selectedIndex: -1,
-    itemIndex: 0,
-    mode: "step",
-    components: [],
-    selectedComponent: null,
-    highlightEnabled: true,
-    summary: null,
-    activePanel: "issues",
-};
+resetState();
 
 const issueButtons = [];
-const collapsedGroups = {
-    error: false,
-    warning: false,
-    info: false,
-};
 
 function getIssueItems(issue) {
     const faces = Array.isArray(issue.faces) ? issue.faces : [];
@@ -160,10 +146,10 @@ function renderIssuesGrouped(issues) {
         header.textContent = `${sevLabel} (${items.length})`;
         const body = document.createElement("div");
         body.className = "group-items";
-        body.classList.toggle("hidden", collapsedGroups[sev]);
+        body.classList.toggle("hidden", state.collapsedGroups[sev]);
         header.addEventListener("click", () => {
-            collapsedGroups[sev] = !collapsedGroups[sev];
-            body.classList.toggle("hidden", collapsedGroups[sev]);
+            state.collapsedGroups[sev] = !state.collapsedGroups[sev];
+            body.classList.toggle("hidden", state.collapsedGroups[sev]);
         });
         groupDiv.appendChild(header);
         groupDiv.appendChild(body);
