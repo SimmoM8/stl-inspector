@@ -6,6 +6,7 @@ const viewer = createViewer(viewerContainer);
 
 const issuesEl = document.getElementById("issues");
 const clearBtn = document.getElementById("clearBtn");
+const statusBubble = document.getElementById("statusBubble");
 
 const issueTitle = document.getElementById("issueTitle");
 const issueMeta = document.getElementById("issueMeta");
@@ -297,9 +298,25 @@ function loadViewSettings() {
     syncViewControls();
 }
 
+let statusTimeout = null;
+
 function saveViewSettings() {
     const current = viewer.getViewSettings();
     localStorage.setItem("stl-view-settings", JSON.stringify(current));
+}
+
+function setStatus(message) {
+    if (statusBubble) {
+        statusBubble.textContent = message || "";
+        statusBubble.style.opacity = message ? "1" : "0";
+        if (statusTimeout) clearTimeout(statusTimeout);
+        if (message) {
+            statusTimeout = setTimeout(() => {
+                statusBubble.style.opacity = "0";
+                statusTimeout = null;
+            }, 5000);
+        }
+    }
 }
 
 function syncViewControls() {
@@ -312,13 +329,19 @@ function syncViewControls() {
     gridToggle.classList.toggle("active", v.grid);
     axesToggle.classList.toggle("active", v.axes);
     exposureSlider.value = v.exposure;
-    highlightToggleBtn.textContent = state.highlightEnabled ? "Hide highlight" : "Show highlight";
+    const iconClass = state.highlightEnabled ? "bi-lightbulb-fill" : "bi-lightbulb";
+    highlightToggleBtn.innerHTML = `<i class="bi ${iconClass}"></i>`;
+    highlightToggleBtn.title = state.highlightEnabled ? "Hide highlights" : "Show highlights";
 }
 
 function renderSelection() {
     const issue = state.issues[state.selectedIndex];
     updateActiveButtons();
-    highlightToggleBtn.textContent = state.highlightEnabled ? "Hide highlight" : "Show highlight";
+    const iconClass = state.highlightEnabled ? "bi-lightbulb-fill" : "bi-lightbulb";
+    highlightToggleBtn.innerHTML = `<i class="bi ${iconClass}"></i>`;
+    highlightToggleBtn.title = state.highlightEnabled ? "Hide highlights" : "Show highlights";
+    const modeIcon = state.mode === "all" ? "bi-list-check" : "bi-list-ol";
+    modeToggleBtn.innerHTML = `<i class="bi ${modeIcon}"></i>`;
 
     if (!issue) {
         if (state.highlightEnabled) viewer.clearHighlights();
@@ -389,6 +412,7 @@ renderSelection();
 updateToolbarVisibility();
 loadViewSettings();
 updateSummary(state.summary);
+setStatus("");
 
 fileInput.addEventListener("change", async () => {
     const file = fileInput.files[0];
@@ -397,7 +421,7 @@ fileInput.addEventListener("change", async () => {
     const formData = new FormData();
     formData.append("file", file);
 
-    if (statusText) statusText.textContent = "Uploading and analyzing...";
+    setStatus("Uploading and analyzing...");
 
     try {
         const res = await fetch("http://127.0.0.1:5000/api/analyze", {
@@ -410,8 +434,9 @@ fileInput.addEventListener("change", async () => {
         }
 
         const data = await res.json();
-        if (statusText) statusText.textContent = "Analysis complete";
+        setStatus("Analysis complete");
         viewer.setMeshFromApi(data.mesh);
+        viewer.centerView();
 
         const issues = Array.isArray(data.issues) ? data.issues : [];
         issuesEl.innerHTML = "";
@@ -445,7 +470,7 @@ fileInput.addEventListener("change", async () => {
         }
 
     } catch (err) {
-        if (statusText) statusText.textContent = "Error: " + err.message;
+        setStatus("Error: " + err.message);
     }
 });
 
@@ -484,7 +509,6 @@ railButtons.forEach((btn) => {
 
 modeToggleBtn.addEventListener("click", () => {
     state.mode = state.mode === "all" ? "step" : "all";
-    modeToggleBtn.textContent = state.mode === "all" ? "Step" : "All";
     renderSelection();
 });
 
@@ -502,7 +526,9 @@ frameBtn.addEventListener("click", () => {
 
 highlightToggleBtn.addEventListener("click", () => {
     state.highlightEnabled = !state.highlightEnabled;
-    highlightToggleBtn.textContent = state.highlightEnabled ? "Hide highlight" : "Show highlight";
+    const iconClass = state.highlightEnabled ? "bi-lightbulb-fill" : "bi-lightbulb";
+    highlightToggleBtn.innerHTML = `<i class="bi ${iconClass}"></i>`;
+    highlightToggleBtn.title = state.highlightEnabled ? "Hide highlights" : "Show highlights";
     if (!state.highlightEnabled) {
         viewer.clearHighlights();
     } else {
@@ -517,6 +543,7 @@ clearToolbarBtn.addEventListener("click", () => {
     state.mode = "step";
     renderSelection();
     updateToolbarVisibility();
+    syncViewControls();
 });
 
 edgeThresholdInput.addEventListener("input", () => {
@@ -545,16 +572,22 @@ smoothShadingBtn.addEventListener("click", () => {
 
 xrayToggle.addEventListener("click", () => {
     const next = !viewer.getViewSettings().xray;
-    viewer.setViewSettings({ xray: next });
+    const payload = { xray: next };
+    if (next) payload.wireframe = false;
+    viewer.setViewSettings(payload);
     xrayToggle.classList.toggle("active", next);
+    wireframeToggle.classList.toggle("active", false);
     renderSelection();
     saveViewSettings();
 });
 
 wireframeToggle.addEventListener("click", () => {
     const next = !viewer.getViewSettings().wireframe;
-    viewer.setViewSettings({ wireframe: next });
+    const payload = { wireframe: next };
+    if (next) payload.xray = false;
+    viewer.setViewSettings(payload);
     wireframeToggle.classList.toggle("active", next);
+    xrayToggle.classList.toggle("active", false);
     renderSelection();
     saveViewSettings();
 });

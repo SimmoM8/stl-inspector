@@ -259,7 +259,7 @@
         .upload-panel {
             position: absolute;
             top: 12px;
-            right: 12px;
+            left: 12px;
             padding: 8px 12px;
             background: rgba(15, 23, 42, 0.92);
             border: 1px solid var(--border);
@@ -275,6 +275,16 @@
             align-items: center;
         }
         #fileInput { display: none; }
+        #statusBubble {
+            margin-top: auto;
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.9);
+            color: var(--text);
+            font-size: 12px;
+            min-height: 32px;
+        }
     </style>
 </head>
 
@@ -283,7 +293,6 @@
         <div class="rail">
             <button class="active" data-panel="issues" title="Issues"><i class="bi bi-exclamation-triangle"></i></button>
             <button data-panel="components" title="Components"><i class="bi bi-boxes"></i></button>
-            <button data-panel="file" title="File"><i class="bi bi-folder2-open"></i></button>
             <button data-panel="tools" title="Tools"><i class="bi bi-tools"></i></button>
             <button data-panel="settings" title="Settings"><i class="bi bi-gear"></i></button>
         </div>
@@ -311,11 +320,6 @@
                 </div>
             </div>
 
-            <div class="card panel hidden" id="panel-file">
-                <h4>File</h4>
-                <input type="file" id="fileInput" accept=".stl" />
-                <div class="meta" id="statusText"></div>
-            </div>
 
             <div class="card panel" id="panel-issues">
                 <h4>Issues</h4>
@@ -361,13 +365,14 @@
             </div>
 
             <button id="clearBtn">Clear highlight</button>
+            <div id="statusBubble"></div>
         </div>
 
         <div class="viewer-wrap">
             <div id="viewer"></div>
             <div class="upload-panel">
+                <input type="file" id="fileInput" accept=".stl" />
                 <label for="fileInput" title="Upload STL"><i class="bi bi-upload"></i> Upload STL</label>
-                <div class="meta" id="statusText"></div>
             </div>
             <div class="tool-column" id="cameraToolbar" style="right:16px; top:64px;">
                 <button id="frameBtn" title="Frame object"><i class="bi bi-bounding-box-circles"></i></button>
@@ -388,7 +393,6 @@
                 <button id="gridToggle" title="Show grid" class="active"><i class="bi bi-grid-3x3-gap"></i></button>
                 <button id="axesToggle" title="Show axes" class="active"><i class="bi bi-compass"></i></button>
                 <button id="edgeMode" title="Edge mode"><i class="bi bi-scissors"></i></button>
-                <button id="highlightToggleBtn" title="Toggle highlights"><i class="bi bi-lightbulb"></i></button>
             </div>
         </div>
     </div>

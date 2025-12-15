@@ -542,16 +542,18 @@ export function createViewer(container) {
         return currentMesh.localToWorld(mid);
     }
 
-    function moveCameraToPoint(point) {
+    function moveCameraToPoint(point, preferredRadius) {
         if (!currentMesh) return;
         // Preserve current camera offset so zoom/orientation stay the same;
         // only pan the view to the target point.
         const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
         if (offset.lengthSq() < 1e-6) {
-            const r = currentMesh.geometry.boundingSphere
+            const r = preferredRadius || (currentMesh.geometry.boundingSphere
                 ? currentMesh.geometry.boundingSphere.radius
-                : 1;
+                : 1);
             offset.set(0, r * 0.3, r * 1.2);
+        } else if (preferredRadius) {
+            offset.setLength(preferredRadius * 1.5);
         }
         desiredTarget.copy(point);
         desiredCameraPos.copy(point).add(offset);
@@ -590,7 +592,8 @@ export function createViewer(container) {
         const mapped = mapFaceList([faceIndex]);
         if (!mapped.length) return;
         const centroid = faceCentroid(mapped[0]);
-        moveCameraToPoint(centroid);
+        const r = currentMesh.geometry.boundingSphere ? currentMesh.geometry.boundingSphere.radius : 1;
+        moveCameraToPoint(centroid, r * 0.6);
         controls.update();
     }
 
@@ -601,7 +604,8 @@ export function createViewer(container) {
         const mapped = mapEdgePairs([edgePair]);
         if (!mapped.length) return;
         const mid = edgeMidpoint(mapped[0]);
-        moveCameraToPoint(mid);
+        const r = currentMesh.geometry.boundingSphere ? currentMesh.geometry.boundingSphere.radius : 1;
+        moveCameraToPoint(mid, r * 0.6);
         controls.update();
     }
 
