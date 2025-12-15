@@ -1,8 +1,10 @@
 import { createViewer } from "./viewer.js";
+import { getAnalyzeUrl, DEFAULT_VIEW_SETTINGS } from "./config.js";
 
 const fileInput = document.getElementById("fileInput");
 const viewerContainer = document.getElementById("viewer");
 const viewer = createViewer(viewerContainer);
+viewer.setViewSettings(DEFAULT_VIEW_SETTINGS);
 
 const issuesEl = document.getElementById("issues");
 const clearBtn = document.getElementById("clearBtn");
@@ -424,9 +426,9 @@ fileInput.addEventListener("change", async () => {
     setStatus("Uploading and analyzing...");
 
     try {
-        const res = await fetch("http://127.0.0.1:5000/api/analyze", {
+        const res = await fetch(getAnalyzeUrl(), {
             method: "POST",
-            body: formData
+            body: formData,
         });
 
         if (!res.ok) {

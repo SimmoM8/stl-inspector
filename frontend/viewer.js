@@ -9,7 +9,7 @@ import { Line2 } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/Line2.
 import { LineMaterial } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineMaterial.js";
 import { LineGeometry } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineGeometry.js";
 
-export function createViewer(container) {
+export function createViewer(container, initialViewSettings = {}) {
     let currentMesh = null;
     let currentEdges = null;
     let highlightMesh = null;
@@ -29,7 +29,7 @@ export function createViewer(container) {
     const baseMeshColor = new THREE.Color(0xf2f4f7);
     const viewSettings = {
         edgeThreshold: 12,
-        edgeMode: "feature", // feature | all | off
+        edgeMode: "feature",
         cadShading: true,
         wireframe: false,
         xray: false,
@@ -37,6 +37,8 @@ export function createViewer(container) {
         axes: true,
         exposure: 1.9,
     };
+
+    Object.assign(viewSettings, initialViewSettings);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf9fafc);
