@@ -544,16 +544,21 @@ export function createViewer(container) {
 
     function moveCameraToPoint(point, preferredRadius) {
         if (!currentMesh) return;
-        // Preserve current camera offset so zoom/orientation stay the same;
-        // only pan the view to the target point.
+        // Preserve current camera offset; only shorten for tighter framing, never lengthen.
         const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
-        if (offset.lengthSq() < 1e-6) {
-            const r = preferredRadius || (currentMesh.geometry.boundingSphere
-                ? currentMesh.geometry.boundingSphere.radius
-                : 1);
-            offset.set(0, r * 0.3, r * 1.2);
+        const hasOffset = offset.lengthSq() >= 1e-6;
+        const r = preferredRadius || (currentMesh.geometry.boundingSphere
+            ? currentMesh.geometry.boundingSphere.radius
+            : 1);
+        const desiredDistance = r * 1.1; // tighter framing
+
+        if (!hasOffset) {
+            offset.set(0, r * 0.3, desiredDistance);
         } else if (preferredRadius) {
-            offset.setLength(preferredRadius * 1.5);
+            const currentDist = offset.length();
+            // Only tighten if current distance is larger; never zoom out
+            const targetDist = Math.min(currentDist, desiredDistance);
+            offset.setLength(targetDist);
         }
         desiredTarget.copy(point);
         desiredCameraPos.copy(point).add(offset);
