@@ -25,7 +25,8 @@ export function createViewer(container) {
     let faceIndexMap = null;   // Map original face index -> current face index (or null for identity)
     let vertexIndexMap = null; // Map original vertex index -> current vertex index (or null for identity)
     let lastFaceList = null; // remember last applied component for settings refresh
-    const baseMeshColor = new THREE.Color(0xffffff);
+    let sourceGeometry = null; // stable indexed geometry for highlighting/mapping
+    const baseMeshColor = new THREE.Color(0xf2f4f7);
     const viewSettings = {
         edgeThreshold: 12,
         edgeMode: "feature", // feature | all | off
@@ -34,7 +35,7 @@ export function createViewer(container) {
         xray: false,
         grid: true,
         axes: true,
-        exposure: 1.6,
+        exposure: 1.9,
     };
 
     const scene = new THREE.Scene();
@@ -82,18 +83,18 @@ export function createViewer(container) {
     composer.addPass(fxaaPass);
 
     // CAD-style lighting rig
-    const hemi = new THREE.HemisphereLight(0xb0c4ff, 0x2a2f38, 0.6);
+    const hemi = new THREE.HemisphereLight(0xdfe8ff, 0x2f3540, 1.0);
     scene.add(hemi);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
     keyLight.position.set(4, 6, 4);
     scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight(0xffffff, 0.7);
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.6);
     rimLight.position.set(-4, 3, -2);
     scene.add(rimLight);
 
-    const headLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    const headLight = new THREE.DirectionalLight(0xffffff, 0.5);
     scene.add(headLight);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -150,33 +151,31 @@ export function createViewer(container) {
             fMap.set(faceIndex, faceCounter);
         }
 
-        let geometry = new THREE.BufferGeometry();
-        geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
-        geometry.setIndex(new THREE.BufferAttribute(remappedIndices, 1));
+        // Stable, indexed geometry that matches our remapped vertex indices.
+        // IMPORTANT: highlights and focus calculations should use this geometry so indices stay consistent.
+        const sourceGeom = new THREE.BufferGeometry();
+        sourceGeom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
+        sourceGeom.setIndex(new THREE.BufferAttribute(remappedIndices, 1));
 
-        let newVertexMap = vMap;
-        // Weld close vertices but let crease-angle normals preserve sharp edges
-        geometry = BufferGeometryUtils.mergeVertices(geometry, 1e-5);
+        // Display geometry can be modified for shading (creased normals) without breaking highlight indices.
+        let displayGeom = sourceGeom.clone();
 
-        // Remap original vertices to merged indices
-        const idx = geometry.getIndex();
-        newVertexMap = new Map();
-        for (let faceCounter = 0; faceCounter < useFaces.length; faceCounter++) {
-            const faceIndex = useFaces[faceCounter];
-            const i0 = baseIndices[faceIndex * 3 + 0];
-            const i1 = baseIndices[faceIndex * 3 + 1];
-            const i2 = baseIndices[faceIndex * 3 + 2];
-            const base = faceCounter * 3;
-            newVertexMap.set(i0, idx.getX(base + 0));
-            newVertexMap.set(i1, idx.getX(base + 1));
-            newVertexMap.set(i2, idx.getX(base + 2));
+        if (viewSettings.cadShading) {
+            const creaseAngle = THREE.MathUtils.degToRad(30);
+            displayGeom = BufferGeometryUtils.toCreasedNormals(displayGeom, creaseAngle);
+        } else {
+            displayGeom.computeVertexNormals();
         }
 
-        const creaseAngle = viewSettings.cadShading ? THREE.MathUtils.degToRad(30) : Math.PI;
-        geometry = BufferGeometryUtils.toCreasedNormals(geometry, creaseAngle);
-        geometry.computeBoundingBox();
-        geometry.computeBoundingSphere();
-        return { geometry, faceMap: fMap, vertexMap: newVertexMap };
+        // Compute bounds for BOTH
+        sourceGeom.computeBoundingBox();
+        sourceGeom.computeBoundingSphere();
+        displayGeom.computeBoundingBox();
+        displayGeom.computeBoundingSphere();
+
+        // vertexMap should map original vertex indices -> sourceGeom vertex indices
+        // (these are the indices used by issue.edges)
+        return { sourceGeom, displayGeom, faceMap: fMap, vertexMap: vMap };
     }
 
     function fitHelpersAndCamera(geometry, mesh) {
@@ -226,9 +225,18 @@ export function createViewer(container) {
 
     function applyGeometry(faceList, refitCamera = true) {
         if (!basePositions || !baseIndices) return;
+        clearHighlights();
         lastFaceList = faceList && faceList.length ? faceList.slice() : null;
-        const { geometry, faceMap, vertexMap: vMap } = buildGeometryFromFaceList(faceList);
-        const box = geometry.boundingBox;
+        const { sourceGeom, displayGeom, faceMap, vertexMap: vMap } = buildGeometryFromFaceList(faceList);
+
+        // Replace sourceGeometry (stable) used for highlight mapping
+        if (sourceGeometry) {
+            sourceGeometry.dispose();
+            sourceGeometry = null;
+        }
+        sourceGeometry = sourceGeom;
+
+        const box = displayGeom.boundingBox;
         const minY = box.min.y;
 
         if (!currentMesh) {
@@ -237,12 +245,12 @@ export function createViewer(container) {
                 roughness: 0.8,
                 color: baseMeshColor,
             });
-            currentMesh = new THREE.Mesh(geometry, material);
+            currentMesh = new THREE.Mesh(displayGeom, material);
             pivot.add(currentMesh);
         } else {
             clearHighlights();
             currentMesh.geometry.dispose();
-            currentMesh.geometry = geometry;
+            currentMesh.geometry = displayGeom;
             currentMesh.material.color.copy(baseMeshColor);
         }
 
@@ -254,10 +262,10 @@ export function createViewer(container) {
         vertexIndexMap = faceList && faceList.length ? vMap : null;
 
         if (refitCamera) {
-            fitHelpersAndCamera(geometry, currentMesh);
+            fitHelpersAndCamera(displayGeom, currentMesh);
         } else {
             // keep helpers roughly scaled to new geometry without moving camera/target
-            const sphere = geometry.boundingSphere;
+            const sphere = displayGeom.boundingSphere;
             const r = sphere.radius;
             axesHelper.scale.setScalar(r);
             gridHelper.scale.setScalar(r);
@@ -353,6 +361,24 @@ export function createViewer(container) {
         headLight.position.copy(camera.position);
         headLight.target.position.copy(controls.target);
         headLight.target.updateMatrixWorld();
+        // Subtle light steering: key and rim gently follow camera yaw/pitch
+        const camDir = new THREE.Vector3();
+        camera.getWorldDirection(camDir);
+        const right = new THREE.Vector3().crossVectors(camDir, camera.up).normalize();
+        const up = camera.up.clone().normalize();
+        keyLight.position.copy(controls.target)
+            .addScaledVector(camDir, 6)
+            .addScaledVector(up, 4)
+            .addScaledVector(right, 2);
+        keyLight.target.position.copy(controls.target);
+        keyLight.target.updateMatrixWorld();
+
+        rimLight.position.copy(controls.target)
+            .addScaledVector(camDir.clone().negate(), 5)
+            .addScaledVector(up, 3)
+            .addScaledVector(right.clone().negate(), 1.5);
+        rimLight.target.position.copy(controls.target);
+        rimLight.target.updateMatrixWorld();
         if (animatingFocus) {
             camera.position.lerp(desiredCameraPos, 0.15);
             controls.target.lerp(desiredTarget, 0.18);
@@ -421,10 +447,11 @@ export function createViewer(container) {
 
     function highlightFaces(faceIndices) {
         if (!currentMesh) return;
+        if (!sourceGeometry) return;
         const mappedFaces = mapFaceList(faceIndices);
         if (!mappedFaces.length) return;
 
-        const baseGeom = currentMesh.geometry;
+        const baseGeom = sourceGeometry;
         const posAttr = baseGeom.getAttribute("position");
         const indexAttr = baseGeom.getIndex();
 
@@ -470,10 +497,11 @@ export function createViewer(container) {
 
     function highlightEdgePairs(edgePairs) {
         if (!currentMesh) return;
+        if (!sourceGeometry) return;
         const mappedEdges = mapEdgePairs(edgePairs);
         if (!mappedEdges.length) return;
 
-        const baseGeom = currentMesh.geometry;
+        const baseGeom = sourceGeometry;
         const posAttr = baseGeom.getAttribute("position");
 
         // Flatten into [x1,y1,z1, x2,y2,z2, ...]
@@ -517,7 +545,7 @@ export function createViewer(container) {
     }
 
     function faceCentroid(faceIndex) {
-        const baseGeom = currentMesh.geometry;
+        const baseGeom = sourceGeometry || currentMesh.geometry;
         const posAttr = baseGeom.getAttribute("position");
         const indexAttr = baseGeom.getIndex();
 
@@ -537,7 +565,7 @@ export function createViewer(container) {
     }
 
     function edgeMidpoint(edgePair) {
-        const baseGeom = currentMesh.geometry;
+        const baseGeom = sourceGeometry || currentMesh.geometry;
         const posAttr = baseGeom.getAttribute("position");
         const [a, b] = edgePair;
 
@@ -659,6 +687,7 @@ export function createViewer(container) {
     }
 
     function setViewSettings(partial) {
+        clearHighlights();
         Object.assign(viewSettings, partial);
         renderer.toneMappingExposure = Math.max(0.2, viewSettings.exposure);
 
@@ -683,7 +712,7 @@ export function createViewer(container) {
             xray: false,
             grid: true,
             axes: true,
-            exposure: 1.6,
+            exposure: 1.9,
         });
     }
 
