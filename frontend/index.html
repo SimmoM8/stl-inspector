@@ -347,7 +347,17 @@
 
             <div class="card panel hidden" id="panel-settings">
                 <h4>Settings</h4>
-                <div class="meta">Reserved for settings.</div>
+                <div class="control-row">
+                    <span>Edge threshold</span>
+                    <input type="range" id="edgeThreshold" min="0" max="60" value="12">
+                </div>
+                <div class="control-row">
+                    <span>Exposure</span>
+                    <input type="range" id="exposureSlider" min="0.2" max="3" step="0.05" value="1.4">
+                </div>
+                <div class="control-row">
+                    <button id="resetViewBtn">Reset view settings</button>
+                </div>
             </div>
 
             <button id="clearBtn">Clear highlight</button>
@@ -378,15 +388,7 @@
                 <button id="gridToggle" title="Show grid" class="active"><i class="bi bi-grid-3x3-gap"></i></button>
                 <button id="axesToggle" title="Show axes" class="active"><i class="bi bi-compass"></i></button>
                 <button id="edgeMode" title="Edge mode"><i class="bi bi-scissors"></i></button>
-                <div class="slider">
-                    <span title="Edge threshold"><i class="bi bi-bezier2"></i></span>
-                    <input type="range" id="edgeThreshold" min="0" max="60" value="12">
-                </div>
-                <div class="slider">
-                    <span title="Exposure"><i class="bi bi-sun"></i></span>
-                    <input type="range" id="exposureSlider" min="0.2" max="3" step="0.05" value="1.4">
-                </div>
-                <button id="resetViewBtn" title="Reset view settings"><i class="bi bi-arrow-counterclockwise"></i></button>
+                <button id="highlightToggleBtn" title="Toggle highlights"><i class="bi bi-lightbulb"></i></button>
             </div>
         </div>
     </div>
