@@ -2,6 +2,14 @@ import { createViewer } from "./viewer.js";
 import { getAnalyzeUrl, DEFAULT_VIEW_SETTINGS } from "./config.js";
 import { state, resetState } from "./state.js";
 import { dom } from "./ui/dom.js";
+import {
+    renderIssuesGrouped,
+    renderComponentsList,
+    renderDetails,
+    updateActiveButtons,
+    updateSummary,
+    updateToolbarVisibility,
+} from "./ui/render.js";
 
 const viewer = createViewer(dom.viewerContainer);
 viewer.setViewSettings(DEFAULT_VIEW_SETTINGS);
@@ -86,99 +94,6 @@ function computeComponents(meshData) {
     return components;
 }
 
-function renderIssuesGrouped(issues) {
-    dom.issuesEl.innerHTML = "";
-    issueButtons.length = 0;
-
-    const groups = { error: [], warning: [], info: [] };
-    issues.forEach((issue, idx) => {
-        const sev = (issue.severity || "info").toLowerCase();
-        if (!groups[sev]) groups[sev] = [];
-        groups[sev].push({ issue, idx });
-    });
-
-    function createGroup(sevLabel, items) {
-        const sev = sevLabel.toLowerCase();
-        const groupDiv = document.createElement("div");
-        groupDiv.className = "group";
-        const header = document.createElement("div");
-        header.className = "group-header";
-        header.textContent = `${sevLabel} (${items.length})`;
-        const body = document.createElement("div");
-        body.className = "group-items";
-        body.classList.toggle("hidden", state.collapsedGroups[sev]);
-        header.addEventListener("click", () => {
-            state.collapsedGroups[sev] = !state.collapsedGroups[sev];
-            body.classList.toggle("hidden", state.collapsedGroups[sev]);
-        });
-        groupDiv.appendChild(header);
-        groupDiv.appendChild(body);
-
-        items.forEach(({ issue, idx }) => {
-            const btn = document.createElement("button");
-            const countText = issue.count != null ? ` (${issue.count})` : "";
-            btn.textContent = `${issue.severity.toUpperCase()}: ${issue.type}${countText}`;
-            btn.title = issue.message;
-            btn.addEventListener("click", () => selectIssue(idx));
-            body.appendChild(btn);
-            issueButtons.push({ el: btn, index: idx });
-        });
-
-        dom.issuesEl.appendChild(groupDiv);
-    }
-
-    createGroup("Error", groups.error);
-    createGroup("Warning", groups.warning);
-    createGroup("Info", groups.info);
-}
-
-function updateActiveButtons() {
-    issueButtons.forEach((info) => {
-        info.el.classList.toggle("active", info.index === state.selectedIndex);
-    });
-}
-
-function renderDetails(issue, meta) {
-    if (!issue) {
-        dom.issueTitle.textContent = "No issue selected";
-        dom.issueMeta.textContent = "";
-        dom.issueIndices.textContent = "";
-        dom.prevBtn.disabled = true;
-        dom.nextBtn.disabled = true;
-        dom.showAllBtn.disabled = true;
-        return;
-    }
-
-    const severity = issue.severity ? issue.severity.toUpperCase() : "INFO";
-    dom.issueTitle.textContent = `${severity}: ${issue.type}`;
-    const metaParts = [];
-    if (issue.message) metaParts.push(issue.message);
-    if (issue.count != null) metaParts.push(`Count: ${issue.count}`);
-    dom.issueMeta.textContent = metaParts.join(" • ");
-
-    dom.issueIndices.textContent = meta.description;
-    dom.prevBtn.disabled = meta.disableNav;
-    dom.nextBtn.disabled = meta.disableNav;
-    dom.showAllBtn.disabled = false;
-}
-
-function renderComponentsList() {
-    dom.componentsList.innerHTML = "";
-    if (!state.components.length) return;
-
-    state.components.forEach((comp) => {
-        const btn = document.createElement("button");
-        const facesText = `${comp.counts.numFaces} faces`;
-        const vertsText = `${comp.counts.numVertices} verts`;
-        btn.textContent = `Component ${comp.componentIndex} (${facesText}, ${vertsText})`;
-        btn.classList.toggle("active", state.selectedComponent === comp.componentIndex);
-        btn.addEventListener("click", () => {
-            applyComponentSelection(comp.componentIndex);
-        });
-        dom.componentsList.appendChild(btn);
-    });
-}
-
 function applyComponentSelection(componentIndex) {
     state.selectedComponent = componentIndex;
     const comp = state.components.find((c) => c.componentIndex === componentIndex);
@@ -189,8 +104,8 @@ function applyComponentSelection(componentIndex) {
         state.selectedComponent = null;
     }
     renderSelection();
-    renderComponentsList();
-    updateToolbarVisibility();
+    renderComponentsList(state, dom, applyComponentSelection);
+    updateToolbarVisibility(state, dom);
 }
 
 function selectLargestComponent() {
@@ -210,27 +125,6 @@ function setActivePanel(panelName) {
     dom.railButtons.forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.panel === panelName);
     });
-}
-
-function updateToolbarVisibility() {
-    const hasIssueSelection = state.selectedIndex >= 0;
-    const hasComponentSelection = state.selectedComponent !== null;
-    if (dom.cameraToolbar) dom.cameraToolbar.classList.toggle("hidden", false); // always visible
-    if (dom.inspectToolbar) dom.inspectToolbar.classList.toggle("hidden", !(hasIssueSelection || hasComponentSelection));
-    if (dom.renderToolbar) dom.renderToolbar.classList.toggle("hidden", !(hasIssueSelection || hasComponentSelection));
-    dom.modeToggleBtn.disabled = !hasIssueSelection;
-    dom.prevBtn.disabled = !hasIssueSelection;
-    dom.nextBtn.disabled = !hasIssueSelection;
-}
-
-function updateSummary(summary) {
-    if (summary) {
-        dom.summaryWatertight.textContent =
-            summary.isWatertight === undefined ? "–" : (summary.isWatertight ? "Yes" : "No");
-        dom.summaryComponents.textContent = summary.numComponents ?? "–";
-        dom.summaryFaces.textContent = summary.numFaces ?? "–";
-        dom.summaryVertices.textContent = summary.numVertices ?? "–";
-    }
 }
 
 function loadViewSettings() {
@@ -284,7 +178,7 @@ function syncViewControls() {
 
 function renderSelection() {
     const issue = state.issues[state.selectedIndex];
-    updateActiveButtons();
+    updateActiveButtons(state, issueButtons);
     const iconClass = state.highlightEnabled ? "bi-lightbulb-fill" : "bi-lightbulb";
     dom.highlightToggleBtn.innerHTML = `<i class="bi ${iconClass}"></i>`;
     dom.highlightToggleBtn.title = state.highlightEnabled ? "Hide highlights" : "Show highlights";
@@ -293,7 +187,7 @@ function renderSelection() {
 
     if (!issue) {
         if (state.highlightEnabled) viewer.clearHighlights();
-        renderDetails(null, { description: "", pageLabel: "–", disableNav: true });
+        renderDetails(dom, null, { description: "", pageLabel: "–", disableNav: true });
         return;
     }
 
@@ -329,13 +223,13 @@ function renderSelection() {
         }
     }
 
-    renderDetails(issue, {
+    renderDetails(dom, issue, {
         pageLabel,
         description,
         disableNav,
     });
 
-    updateToolbarVisibility();
+    updateToolbarVisibility(state, dom);
 }
 
 function selectIssue(idx) {
@@ -357,9 +251,9 @@ function moveItem(delta) {
 }
 
 renderSelection();
-updateToolbarVisibility();
+updateToolbarVisibility(state, dom);
 loadViewSettings();
-updateSummary(state.summary);
+updateSummary(dom, state.summary);
 setStatus("");
 
 dom.fileInput.addEventListener("change", async () => {
@@ -399,10 +293,10 @@ dom.fileInput.addEventListener("change", async () => {
         state.summary = data.summary || null;
 
         renderSelection();
-        renderComponentsList();
-        updateSummary(state.summary);
+        renderComponentsList(state, dom, applyComponentSelection);
+        updateSummary(dom, state.summary);
 
-        renderIssuesGrouped(issues);
+        renderIssuesGrouped(state, dom, issueButtons, selectIssue);
 
         if (dom.autoLargestInput.checked && state.components.length) {
             const largest = state.components.reduce((best, comp) =>
@@ -414,7 +308,7 @@ dom.fileInput.addEventListener("change", async () => {
             viewer.showAllComponents();
             state.selectedComponent = null;
             renderSelection();
-            renderComponentsList();
+            renderComponentsList(state, dom, applyComponentSelection);
         }
 
     } catch (err) {
@@ -442,7 +336,7 @@ dom.showAllComponentsBtn.addEventListener("click", () => {
     state.selectedComponent = null;
     viewer.showAllComponents();
     renderSelection();
-    renderComponentsList();
+    renderComponentsList(state, dom, applyComponentSelection);
 });
 
 dom.autoLargestInput.addEventListener("change", () => {
@@ -490,7 +384,7 @@ dom.clearToolbarBtn.addEventListener("click", () => {
     state.itemIndex = 0;
     state.mode = "step";
     renderSelection();
-    updateToolbarVisibility();
+    updateToolbarVisibility(state, dom);
     syncViewControls();
 });
 
