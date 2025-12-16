@@ -303,11 +303,8 @@ dom.fileInput.addEventListener("change", async () => {
 
         state.summary = data.summary || null;
 
-        renderSelection();
-        renderComponentsList(state, dom, applyComponentSelection);
-        updateSummary(dom, state.summary);
-
         renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup);
+        refreshUI();
 
         if (dom.autoLargestInput.checked && state.components.length) {
             const largest = state.components.reduce((best, comp) =>
@@ -318,8 +315,7 @@ dom.fileInput.addEventListener("change", async () => {
         } else {
             viewer.showAllComponents();
             state.selectedComponent = null;
-            renderSelection();
-            renderComponentsList(state, dom, applyComponentSelection);
+            refreshUI();
         }
 
     } catch (err) {
