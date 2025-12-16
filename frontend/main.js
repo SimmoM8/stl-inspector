@@ -23,6 +23,13 @@ function toggleGroup(sev) {
     updateActiveButtons(state, issueButtons);
 }
 
+function refreshUI() {
+    renderSelection();
+    renderComponentsList(state, dom, applyComponentSelection);
+    updateSummary(dom, state.summary);
+    updateActiveButtons(state, issueButtons);
+}
+
 function getIssueItems(issue) {
     const faces = Array.isArray(issue.faces) ? issue.faces : [];
     const edges = Array.isArray(issue.edges) ? issue.edges : [];
@@ -108,9 +115,7 @@ function applyComponentSelection(componentIndex) {
         viewer.showAllComponents();
         state.selectedComponent = null;
     }
-    renderSelection();
-    renderComponentsList(state, dom, applyComponentSelection);
-    updateToolbarVisibility(state, dom);
+    refreshUI();
 }
 
 function selectLargestComponent() {
@@ -341,8 +346,7 @@ dom.showAllBtn.addEventListener("click", () => {
 dom.showAllComponentsBtn.addEventListener("click", () => {
     state.selectedComponent = null;
     viewer.showAllComponents();
-    renderSelection();
-    renderComponentsList(state, dom, applyComponentSelection);
+    refreshUI();
 });
 
 dom.autoLargestInput.addEventListener("change", () => {
