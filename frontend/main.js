@@ -17,6 +17,11 @@ viewer.setViewSettings(DEFAULT_VIEW_SETTINGS);
 resetState();
 
 const issueButtons = [];
+function toggleGroup(sev) {
+    state.collapsedGroups[sev] = !state.collapsedGroups[sev];
+    renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup);
+    updateActiveButtons(state, issueButtons);
+}
 
 function getIssueItems(issue) {
     const faces = Array.isArray(issue.faces) ? issue.faces : [];
@@ -255,6 +260,7 @@ updateToolbarVisibility(state, dom);
 loadViewSettings();
 updateSummary(dom, state.summary);
 setStatus("");
+renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup);
 
 dom.fileInput.addEventListener("change", async () => {
     const file = dom.fileInput.files[0];
@@ -296,7 +302,7 @@ dom.fileInput.addEventListener("change", async () => {
         renderComponentsList(state, dom, applyComponentSelection);
         updateSummary(dom, state.summary);
 
-        renderIssuesGrouped(state, dom, issueButtons, selectIssue);
+        renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup);
 
         if (dom.autoLargestInput.checked && state.components.length) {
             const largest = state.components.reduce((best, comp) =>

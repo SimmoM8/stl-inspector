@@ -1,4 +1,4 @@
-function renderIssuesGrouped(state, dom, issueButtons, selectIssue) {
+function renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup) {
     dom.issuesEl.innerHTML = "";
     issueButtons.length = 0;
 
@@ -19,10 +19,7 @@ function renderIssuesGrouped(state, dom, issueButtons, selectIssue) {
         const body = document.createElement("div");
         body.className = "group-items";
         body.classList.toggle("hidden", state.collapsedGroups[sev]);
-        header.addEventListener("click", () => {
-            state.collapsedGroups[sev] = !state.collapsedGroups[sev];
-            body.classList.toggle("hidden", state.collapsedGroups[sev]);
-        });
+        header.addEventListener("click", () => toggleGroup(sev));
         groupDiv.appendChild(header);
         groupDiv.appendChild(body);
 
