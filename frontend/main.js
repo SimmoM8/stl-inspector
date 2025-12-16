@@ -249,6 +249,16 @@ function selectIssue(idx) {
     renderSelection();
 }
 
+function clearSelection() {
+    viewer.clearHighlights();
+    state.selectedIndex = -1;
+    state.itemIndex = 0;
+    state.mode = "step";
+    state.selectedComponent = null;
+    refreshUI();
+    updateToolbarVisibility(state, dom);
+}
+
 function moveItem(delta) {
     state.mode = "step"; // auto-switch to stepping when iterating
     if (state.selectedIndex < 0) return;
@@ -323,13 +333,7 @@ dom.fileInput.addEventListener("change", async () => {
     }
 });
 
-dom.clearBtn.addEventListener("click", () => {
-    viewer.clearHighlights();
-    state.selectedIndex = -1;
-    state.itemIndex = 0;
-    state.mode = "step";
-    renderSelection();
-});
+dom.clearBtn.addEventListener("click", clearSelection);
 
 dom.prevBtn.addEventListener("click", () => moveItem(-1));
 dom.nextBtn.addEventListener("click", () => moveItem(1));
@@ -385,12 +389,7 @@ dom.highlightToggleBtn.addEventListener("click", () => {
 });
 
 dom.clearToolbarBtn.addEventListener("click", () => {
-    viewer.clearHighlights();
-    state.selectedIndex = -1;
-    state.itemIndex = 0;
-    state.mode = "step";
-    renderSelection();
-    updateToolbarVisibility(state, dom);
+    clearSelection();
     syncViewControls();
 });
 
