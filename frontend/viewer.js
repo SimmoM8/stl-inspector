@@ -3,6 +3,7 @@ import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/cont
 import * as BufferGeometryUtils from "https://unpkg.com/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js";
 import { EffectComposer } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/RenderPass.js";
+import { SAOPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/SAOPass.js";
 import { ShaderPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/ShaderPass.js";
 import { FXAAShader } from "https://unpkg.com/three@0.160.0/examples/jsm/shaders/FXAAShader.js";
 import { Line2 } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/Line2.js";
@@ -37,12 +38,14 @@ export function createViewer(container, initialViewSettings = {}) {
         grid: true,
         axes: true,
         exposure: 1.9,
+        ssao: false,
     };
 
     Object.assign(viewSettings, initialViewSettings);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf9fafc);
+    // Keep light neutral background for clarity
+    scene.background = new THREE.Color(0xf2f2f2);
     const pivot = new THREE.Group();
     scene.add(pivot);
 
@@ -50,7 +53,7 @@ export function createViewer(container, initialViewSettings = {}) {
     const axesHelper = new THREE.AxesHelper(1); // size will be updated after mesh loads
     scene.add(axesHelper);
 
-    const gridHelper = new THREE.GridHelper(10, 20); // size will be updated after mesh loads
+    let gridHelper = new THREE.GridHelper(10, 20); // size will be updated after mesh loads
     gridHelper.position.y = 0;
     scene.add(gridHelper);
 
@@ -60,6 +63,7 @@ export function createViewer(container, initialViewSettings = {}) {
         opacity: 0.25,
     });
     const ground = new THREE.Mesh(groundGeom, groundMat);
+    ground.receiveShadow = true;
     ground.rotation.x = -Math.PI / 2; // make it horizontal (XZ plane)
     scene.add(ground);
 
@@ -75,6 +79,8 @@ export function createViewer(container, initialViewSettings = {}) {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = viewSettings.exposure;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
@@ -82,6 +88,16 @@ export function createViewer(container, initialViewSettings = {}) {
     const composer = new EffectComposer(renderer);
     const renderPass = new RenderPass(scene, camera);
     composer.addPass(renderPass);
+    const saoPass = new SAOPass(scene, camera, false, true);
+    saoPass.params.output = 0;
+    saoPass.params.saoIntensity = 0.05;
+    saoPass.params.saoBias = 0.0;
+    saoPass.params.saoBlur = true;
+    saoPass.params.saoBlurRadius = 8;
+    saoPass.params.saoBlurStdDev = 4;
+    saoPass.params.saoBlurDepthCutoff = 0.01;
+    saoPass.enabled = !!viewSettings.ssao;
+    composer.addPass(saoPass);
     const fxaaPass = new ShaderPass(FXAAShader);
     composer.addPass(fxaaPass);
 
@@ -91,6 +107,10 @@ export function createViewer(container, initialViewSettings = {}) {
 
     const keyLight = new THREE.DirectionalLight(0xffffff, 1.3);
     keyLight.position.set(4, 6, 4);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.bias = -0.0006;
+    keyLight.shadow.normalBias = 0.02;
     scene.add(keyLight);
 
     const rimLight = new THREE.DirectionalLight(0xffffff, 0.6);
@@ -111,9 +131,6 @@ export function createViewer(container, initialViewSettings = {}) {
     controls.screenSpacePanning = true;
     desiredTarget.copy(controls.target);
     desiredCameraPos.copy(camera.position);
-    // Keep light neutral background for clarity
-    scene.background = new THREE.Color(0xf2f2f2);
-
     // Optional: constrain zoom distances once mesh is loaded
     // we’ll set min/max in setMeshFromApi after we know the bounding sphere
 
@@ -181,9 +198,16 @@ export function createViewer(container, initialViewSettings = {}) {
         return { sourceGeom, displayGeom, faceMap: fMap, vertexMap: vMap };
     }
 
+    function updateSaoKernelRadius() {
+        const safeScale = Number.isFinite(sceneScale) && sceneScale > 0 ? sceneScale : 1;
+        const kernelRadius = THREE.MathUtils.clamp(safeScale * 0.02, 2, 24);
+        saoPass.params.saoKernelRadius = kernelRadius;
+    }
+
     function updateSceneScale(geometry) {
         if (!geometry) {
             sceneScale = 1;
+            updateSaoKernelRadius();
             return;
         }
         if (!geometry.boundingBox) {
@@ -192,12 +216,14 @@ export function createViewer(container, initialViewSettings = {}) {
         const box = geometry.boundingBox;
         if (!box) {
             sceneScale = 1;
+            updateSaoKernelRadius();
             return;
         }
         const size = new THREE.Vector3();
         box.getSize(size);
         const diag = size.length();
         sceneScale = diag > 0 ? diag : 1;
+        updateSaoKernelRadius();
     }
 
     function updateCameraClipping() {
@@ -225,14 +251,42 @@ export function createViewer(container, initialViewSettings = {}) {
         cam.updateProjectionMatrix();
     }
 
-    function fitHelpersAndCamera(geometry, mesh) {
-        const sphere = geometry.boundingSphere;
-        const r = sphere.radius;
+    function getHelperRadius(geometry) {
+        const fallback = Number.isFinite(sceneScale) && sceneScale > 0 ? sceneScale * 0.5 : 1;
+        if (!geometry || !geometry.boundingSphere) return fallback;
+        const r = geometry.boundingSphere.radius;
+        return Number.isFinite(r) && r > 0 ? r : fallback;
+    }
 
+    function rebuildGridHelper(size, divisions) {
+        if (gridHelper) {
+            scene.remove(gridHelper);
+            gridHelper.geometry.dispose();
+            if (Array.isArray(gridHelper.material)) {
+                gridHelper.material.forEach((mat) => mat.dispose());
+            } else {
+                gridHelper.material.dispose();
+            }
+        }
+        gridHelper = new THREE.GridHelper(size, divisions);
+        gridHelper.position.y = 0;
+        gridHelper.visible = viewSettings.grid;
+        scene.add(gridHelper);
+    }
+
+    function updateHelperScales(geometry) {
+        const r = getHelperRadius(geometry);
         axesHelper.scale.setScalar(r);
-        gridHelper.scale.setScalar(r);
-        ground.scale.setScalar(r / 5);
+        const gridSize = Math.max(2, r * 4);
+        const divisions = Math.round(THREE.MathUtils.clamp(gridSize / (r * 0.1), 20, 100));
+        rebuildGridHelper(gridSize, divisions);
+        ground.scale.setScalar(gridSize / 10);
         ground.position.y = 0;
+    }
+
+    function fitHelpersAndCamera(geometry, mesh) {
+        const r = getHelperRadius(geometry);
+        updateHelperScales(geometry);
 
         const target = new THREE.Vector3(0, mesh.position.y + r * 0.2, 0);
         controls.target.copy(target);
@@ -291,12 +345,16 @@ export function createViewer(container, initialViewSettings = {}) {
                 color: baseMeshColor,
             });
             currentMesh = new THREE.Mesh(displayGeom, material);
+            currentMesh.castShadow = true;
+            currentMesh.receiveShadow = true;
             pivot.add(currentMesh);
         } else {
             clearHighlights();
             currentMesh.geometry.dispose();
             currentMesh.geometry = displayGeom;
             currentMesh.material.color.copy(baseMeshColor);
+            currentMesh.castShadow = true;
+            currentMesh.receiveShadow = true;
         }
 
         currentMesh.position.y = -minY;
@@ -312,12 +370,7 @@ export function createViewer(container, initialViewSettings = {}) {
             fitHelpersAndCamera(displayGeom, currentMesh);
         } else {
             // keep helpers roughly scaled to new geometry without moving camera/target
-            const sphere = displayGeom.boundingSphere;
-            const r = sphere.radius;
-            axesHelper.scale.setScalar(r);
-            gridHelper.scale.setScalar(r);
-            ground.scale.setScalar(r / 5);
-            ground.position.y = 0;
+            updateHelperScales(displayGeom);
         }
     }
 
@@ -330,6 +383,7 @@ export function createViewer(container, initialViewSettings = {}) {
 
         gridHelper.visible = viewSettings.grid;
         axesHelper.visible = viewSettings.axes;
+        ground.visible = viewSettings.grid;
     }
 
     function setMeshFromApi(meshData) {
@@ -740,6 +794,10 @@ export function createViewer(container, initialViewSettings = {}) {
         Object.assign(viewSettings, partial);
         renderer.toneMappingExposure = Math.max(0.2, viewSettings.exposure);
 
+        if (partial.ssao !== undefined) {
+            saoPass.enabled = !!viewSettings.ssao;
+        }
+
         if (partial.cadShading !== undefined) {
             applyGeometry(lastFaceList, false);
         } else {
@@ -766,6 +824,7 @@ export function createViewer(container, initialViewSettings = {}) {
             grid: true,
             axes: true,
             exposure: 1.9,
+            ssao: false,
         });
     }
 

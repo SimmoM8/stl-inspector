@@ -180,6 +180,7 @@ function syncViewControls() {
     dom.wireframeToggle.classList.toggle("active", v.wireframe);
     dom.gridToggle.classList.toggle("active", v.grid);
     dom.axesToggle.classList.toggle("active", v.axes);
+    dom.ssaoToggle.checked = !!v.ssao;
     dom.exposureSlider.value = v.exposure;
     const iconClass = state.highlightEnabled ? "bi-lightbulb-fill" : "bi-lightbulb";
     dom.highlightToggleBtn.innerHTML = `<i class="bi ${iconClass}"></i>`;
@@ -451,6 +452,12 @@ dom.axesToggle.addEventListener("click", () => {
     const next = !viewer.getViewSettings().axes;
     viewer.setViewSettings({ axes: next });
     dom.axesToggle.classList.toggle("active", next);
+    renderSelection();
+    saveViewSettings();
+});
+
+dom.ssaoToggle.addEventListener("change", () => {
+    viewer.setViewSettings({ ssao: dom.ssaoToggle.checked });
     renderSelection();
     saveViewSettings();
 });

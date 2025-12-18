@@ -49,6 +49,7 @@ const dom = {
     get wireframeToggle() { return byId("wireframeToggle"); },
     get gridToggle() { return byId("gridToggle"); },
     get axesToggle() { return byId("axesToggle"); },
+    get ssaoToggle() { return byId("ssaoToggle"); },
     get exposureSlider() { return byId("exposureSlider"); },
     get resetViewBtn() { return byId("resetViewBtn"); },
 };

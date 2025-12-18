@@ -241,6 +241,22 @@
             font-size: 12px;
         }
         .render-panel input[type="range"] { width: 120px; }
+        .render-panel .render-toggle {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 4px 6px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--panel-2);
+            color: var(--text);
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .render-panel .render-toggle:hover { background: #152038; }
+        .render-panel .render-toggle input { accent-color: var(--accent); }
         .upload-panel {
             position: absolute;
             top: 12px;

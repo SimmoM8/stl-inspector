@@ -29,6 +29,7 @@ export const DEFAULT_VIEW_SETTINGS = {
     grid: true,
     axes: true,
     exposure: 1.9,
+    ssao: false,
 };
 
 // If you want later: app-level constants (colors, limits, etc.)
