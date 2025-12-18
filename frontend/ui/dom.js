@@ -15,6 +15,7 @@ const dom = {
     get viewerContainer() { return byId("viewer"); },
     get issuesEl() { return byId("issues"); },
     get issueDetails() { return byId("issueDetails"); },
+    get issuesFilterButtons() { return all("#issuesFilter button"); },
     get clearBtn() { return byId("clearBtn"); },
     get statusBubble() { return byId("statusBubble"); },
     get issueTitle() { return byId("issueTitle"); },

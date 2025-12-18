@@ -159,6 +159,27 @@
         #issueDetails .page-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
         #issueDetails .indices { font-size: 12px; color: var(--text); white-space: pre-wrap; word-break: break-word; }
 
+        .issues-filter {
+            display: flex;
+            gap: 6px;
+            margin: 6px 0 10px;
+            flex-wrap: wrap;
+        }
+        .issues-filter button {
+            padding: 4px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--panel-2);
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .issues-filter button.active {
+            color: var(--text);
+            border-color: var(--accent);
+            background: var(--accent-soft);
+        }
+
         #pager { margin-top: 8px; display: flex; gap: 6px; align-items: center; }
         #pager button {
             padding: 8px 12px;

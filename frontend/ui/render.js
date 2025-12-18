@@ -2,6 +2,7 @@ function renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup)
     dom.issuesEl.innerHTML = "";
     issueButtons.length = 0;
 
+    const filter = (state.issueFilter || "all").toLowerCase();
     const groups = { error: [], warning: [], info: [] };
     state.issues.forEach((issue, idx) => {
         const sev = (issue.severity || "info").toLowerCase();
@@ -10,6 +11,7 @@ function renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup)
     });
 
     function createGroup(sevLabel, items) {
+        if (filter !== "all" && filter !== sevLabel.toLowerCase()) return;
         const sev = sevLabel.toLowerCase();
         const groupDiv = document.createElement("div");
         groupDiv.className = "group";

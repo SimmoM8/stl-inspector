@@ -28,6 +28,9 @@ function refreshUI() {
     renderComponentsList(state, dom, applyComponentSelection);
     updateSummary(dom, state.summary);
     updateActiveButtons(state, issueButtons);
+    dom.issuesFilterButtons.forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.filter === state.issueFilter);
+    });
     if (dom.emptyState) dom.emptyState.classList.toggle("hidden", !!state.summary);
 }
 
@@ -331,6 +334,14 @@ dom.fileInput.addEventListener("change", async () => {
     } catch (err) {
         setStatus("Error: " + err.message);
     }
+});
+
+dom.issuesFilterButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+        state.issueFilter = btn.dataset.filter || "all";
+        renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup);
+        refreshUI();
+    });
 });
 
 dom.clearBtn.addEventListener("click", clearSelection);

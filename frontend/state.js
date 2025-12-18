@@ -8,6 +8,7 @@ function createDefaultState() {
         selectedComponent: null,
         highlightEnabled: true,
         summary: null,
+        issueFilter: "all",
         activePanel: "issues",
         collapsedGroups: {
             error: false,

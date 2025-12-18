@@ -50,6 +50,12 @@
 
             <div class="card panel" id="panel-issues">
                 <h4>Issues</h4>
+                <div class="issues-filter" id="issuesFilter">
+                    <button class="active" data-filter="all" title="Show all issues" aria-label="Show all issues">All</button>
+                    <button data-filter="error" title="Show error issues" aria-label="Show error issues">Error</button>
+                    <button data-filter="warning" title="Show warning issues" aria-label="Show warning issues">Warning</button>
+                    <button data-filter="info" title="Show info issues" aria-label="Show info issues">Info</button>
+                </div>
                 <div id="issues"></div>
                 <div id="issueDetails">
                     <h5 id="issueTitle">No issue selected</h5>
