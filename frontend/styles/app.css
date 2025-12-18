@@ -103,14 +103,14 @@ h5 {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 10px 6px;
-    gap: 8px;
+    padding: var(--s4) var(--s2);
+    gap: var(--s3);
 }
 
 .rail button {
     width: 44px;
     height: 44px;
-    border-radius: 12px;
+    border-radius: var(--r3);
     border: 1px solid transparent;
     background: transparent;
     color: var(--muted);
@@ -258,7 +258,7 @@ h5 {
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
-    padding: 8px 0;
+    padding: var(--s3) 0;
     color: var(--muted);
     border-bottom: 1px solid var(--border);
 }
@@ -459,9 +459,9 @@ input[type="range"] {
 }
 
 #pager {
-    margin-top: 8px;
+    margin-top: var(--s3);
     display: flex;
-    gap: 6px;
+    gap: var(--s2);
     align-items: center;
 }
 
@@ -488,10 +488,10 @@ input[type="range"] {
 
 #componentsControls {
     display: flex;
-    gap: 8px;
+    gap: var(--s3);
     align-items: center;
     flex-wrap: wrap;
-    margin-bottom: 6px;
+    margin-bottom: var(--s2);
 }
 
 #autoLargestLabel {
@@ -511,8 +511,8 @@ input[type="range"] {
     display: grid;
     grid-template-columns: 1fr auto;
     align-items: center;
-    gap: 12px;
-    padding: 8px 0;
+    gap: var(--s5);
+    padding: var(--s3) 0;
     border-bottom: 1px solid var(--border);
     font-size: 13px;
     color: var(--text);
@@ -535,8 +535,8 @@ input[type="range"] {
 
 input[type="file"] {
     width: 100%;
-    padding: 8px;
-    border-radius: 10px;
+    padding: var(--s3);
+    border-radius: var(--r2);
     border: 1px dashed var(--stroke);
     background: var(--surface-2);
     color: var(--text);
