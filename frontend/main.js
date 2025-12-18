@@ -310,28 +310,47 @@ function highlightIssue(issue, mode, itemIndex) {
     viewer.showIssueAll(issue);
 }
 
+let previewTimeout = null;
+let restoreTimeout = null;
+
 function previewIssue(index) {
-    if (!state.highlightEnabled) return;
+    if (previewTimeout) clearTimeout(previewTimeout);
+    if (restoreTimeout) {
+        clearTimeout(restoreTimeout);
+        restoreTimeout = null;
+    }
     const issue = state.issues[index];
-    if (!issue) return;
-    highlightIssue(issue, "all", 0);
+    previewTimeout = setTimeout(() => {
+        previewTimeout = null;
+        if (!state.highlightEnabled) return;
+        if (!issue) return;
+        highlightIssue(issue, "all", 0);
+    }, 80);
 }
 
 function restoreSelectionHighlight() {
-    if (!state.highlightEnabled) {
-        viewer.clearHighlights();
-        return;
+    if (previewTimeout) {
+        clearTimeout(previewTimeout);
+        previewTimeout = null;
     }
-    if (state.selectedIndex < 0) {
-        viewer.clearHighlights();
-        return;
-    }
-    const issue = state.issues[state.selectedIndex];
-    if (!issue) {
-        viewer.clearHighlights();
-        return;
-    }
-    highlightIssue(issue, state.mode, state.itemIndex);
+    if (restoreTimeout) clearTimeout(restoreTimeout);
+    restoreTimeout = setTimeout(() => {
+        restoreTimeout = null;
+        if (!state.highlightEnabled) {
+            viewer.clearHighlights();
+            return;
+        }
+        if (state.selectedIndex < 0) {
+            viewer.clearHighlights();
+            return;
+        }
+        const issue = state.issues[state.selectedIndex];
+        if (!issue) {
+            viewer.clearHighlights();
+            return;
+        }
+        highlightIssue(issue, state.mode, state.itemIndex);
+    }, 60);
 }
 
 refreshUI();
