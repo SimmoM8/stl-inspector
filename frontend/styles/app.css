@@ -407,6 +407,33 @@ input[type="range"] {
     accent-color: var(--accent);
 }
 
+.btn {
+    padding: var(--s3) var(--s5);
+    border-radius: var(--r2);
+    border: 1px solid var(--stroke);
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-normal);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
+}
+
+.btn:hover {
+    background: #152038;
+}
+
+.btn--primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #0b1226;
+    font-weight: 600;
+}
+
+.btn--primary:hover {
+    background: #4a8df7;
+}
+
 .issues-filter {
     display: flex;
     gap: var(--s3);
@@ -414,19 +441,20 @@ input[type="range"] {
     flex-wrap: wrap;
 }
 
-.issues-filter button {
+.issues-filter .btn {
     padding: 4px 8px;
     border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--panel-2);
     color: var(--muted);
-    cursor: pointer;
-    font-size: 12px;
+    font-size: var(--fs-sm);
 }
 
-.issues-filter button.active {
+.issues-filter .btn.active {
     color: var(--text);
     border-color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.issues-filter .btn.active:hover {
     background: var(--accent-soft);
 }
 
@@ -454,21 +482,8 @@ input[type="range"] {
 #showAllBtn,
 #showAllComponentsBtn,
 #clearBtn {
-    padding: var(--s3) var(--s5);
-    cursor: pointer;
     width: 100%;
-    border-radius: var(--r2);
-    border: 1px solid var(--border);
-    background: var(--panel-2);
-    color: var(--text);
     margin-top: 8px;
-}
-
-#showAllBtn {
-    border-color: var(--accent);
-    background: var(--accent);
-    color: #0b1226;
-    font-weight: 600;
 }
 
 #componentsControls {
@@ -477,19 +492,6 @@ input[type="range"] {
     align-items: center;
     flex-wrap: wrap;
     margin-bottom: 6px;
-}
-
-#componentsControls button {
-    padding: 8px 12px;
-    cursor: pointer;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--panel-2);
-    color: var(--text);
-}
-
-#componentsControls button:hover {
-    background: #152038;
 }
 
 #autoLargestLabel {
@@ -529,12 +531,6 @@ input[type="range"] {
 .control-row button {
     grid-column: 1 / -1;
     width: 100%;
-    padding: 8px 12px;
-    cursor: pointer;
-    border-radius: 10px;
-    border: 1px solid var(--stroke);
-    background: var(--surface-2);
-    color: var(--text);
 }
 
 input[type="file"] {

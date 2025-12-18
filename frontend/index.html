@@ -54,10 +54,10 @@
                 <div class="issues-controls">
                     <input id="issuesSearch" type="search" placeholder="Search issues..." />
                     <div class="issues-filter" id="issuesFilter">
-                        <button class="active" data-filter="all" title="Show all issues" aria-label="Show all issues">All</button>
-                        <button data-filter="error" title="Show error issues" aria-label="Show error issues">Error</button>
-                        <button data-filter="warning" title="Show warning issues" aria-label="Show warning issues">Warning</button>
-                        <button data-filter="info" title="Show info issues" aria-label="Show info issues">Info</button>
+                        <button class="btn active" data-filter="all" title="Show all issues" aria-label="Show all issues">All</button>
+                        <button class="btn" data-filter="error" title="Show error issues" aria-label="Show error issues">Error</button>
+                        <button class="btn" data-filter="warning" title="Show warning issues" aria-label="Show warning issues">Warning</button>
+                        <button class="btn" data-filter="info" title="Show info issues" aria-label="Show info issues">Info</button>
                     </div>
                 </div>
                 <div id="issues"></div>
@@ -67,14 +67,14 @@
                     <div class="page-label" id="issuePageLabel"></div>
                     <div class="hint" id="issueHint"></div>
                     <div class="indices" id="issueIndices"></div>
-                    <button id="showAllBtn">Show all</button>
+                    <button id="showAllBtn" class="btn btn--primary">Show all</button>
                 </div>
             </div>
 
             <div class="card panel hidden" id="panel-components">
                 <h4>Components</h4>
                 <div id="componentsControls">
-                    <button id="showAllComponentsBtn">Show all</button>
+                    <button id="showAllComponentsBtn" class="btn">Show all</button>
                     <label id="autoLargestLabel">
                         <input type="checkbox" id="autoLargest">
                         Auto largest
@@ -99,11 +99,11 @@
                     <input type="range" id="exposureSlider" min="0.2" max="3" step="0.05" value="1.9">
                 </div>
                 <div class="control-row">
-                    <button id="resetViewBtn">Reset view settings</button>
+                    <button id="resetViewBtn" class="btn">Reset view settings</button>
                 </div>
             </div>
 
-            <button id="clearBtn">Clear highlight</button>
+            <button id="clearBtn" class="btn">Clear highlight</button>
             <div id="statusBubble"></div>
         </div>
 
