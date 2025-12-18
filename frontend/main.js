@@ -474,3 +474,46 @@ dom.resetViewBtn.addEventListener("click", () => {
     renderSelection();
     saveViewSettings();
 });
+
+document.addEventListener("keydown", (event) => {
+    const target = event.target;
+    const tagName = target && target.tagName ? target.tagName.toLowerCase() : "";
+    if (tagName === "input" || tagName === "textarea") return;
+
+    switch (event.key) {
+        case "ArrowLeft":
+        case "j":
+        case "J":
+            event.preventDefault();
+            dom.prevBtn.click();
+            break;
+        case "ArrowRight":
+        case "k":
+        case "K":
+            event.preventDefault();
+            dom.nextBtn.click();
+            break;
+        case "a":
+        case "A":
+            event.preventDefault();
+            dom.modeToggleBtn.click();
+            break;
+        case "h":
+        case "H":
+            event.preventDefault();
+            dom.highlightToggleBtn.click();
+            break;
+        case "c":
+        case "C":
+            event.preventDefault();
+            dom.centerBtn.click();
+            break;
+        case "f":
+        case "F":
+            event.preventDefault();
+            dom.frameBtn.click();
+            break;
+        default:
+            break;
+    }
+});
