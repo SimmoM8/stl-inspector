@@ -370,6 +370,9 @@ export function createViewer(container, initialViewSettings = {}) {
         }
 
         currentMesh.position.y = -minY;
+        const floorY = currentMesh.position.y;
+        gridHelper.position.y = floorY;
+        ground.position.y = floorY;
         rebuildEdges();
         applyMaterialSettings();
         updateSceneScale(displayGeom);
@@ -724,6 +727,9 @@ export function createViewer(container, initialViewSettings = {}) {
 
         // Place mesh center at origin in X/Z and rest it on the grid in Y (no cumulative drift)
         currentMesh.position.set(-center.x, -minY, -center.z);
+        const floorY = currentMesh.position.y;
+        gridHelper.position.y = floorY;
+        ground.position.y = floorY;
 
         fitHelpersAndCamera(currentMesh.geometry, currentMesh);
         updateCameraClipping();
