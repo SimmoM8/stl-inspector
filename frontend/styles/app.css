@@ -390,16 +390,21 @@ h5 {
 }
 
 .issues-controls input[type="search"] {
-    padding: 6px 10px;
-    border-radius: 10px;
+    padding: var(--s2) var(--s4);
+    border-radius: var(--r2);
     border: 1px solid var(--stroke);
     background: var(--surface-2);
     color: var(--text);
-    font-size: 12px;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-normal);
 }
 
 .issues-controls input[type="search"]::placeholder {
     color: var(--muted);
+}
+
+input[type="range"] {
+    accent-color: var(--accent);
 }
 
 .issues-filter {
@@ -488,11 +493,16 @@ h5 {
 }
 
 #autoLargestLabel {
-    font-size: 13px;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-normal);
     display: flex;
     align-items: center;
     gap: 6px;
-    color: var(--muted);
+    color: var(--text);
+    padding: 4px 6px;
+    border-radius: 8px;
+    border: 1px solid var(--stroke);
+    background: var(--surface-2);
 }
 
 .control-row {
@@ -626,7 +636,8 @@ input[type="file"] {
     border: 1px solid var(--stroke);
     background: var(--surface-2);
     color: var(--text);
-    font-size: 12px;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-normal);
     cursor: pointer;
 }
 
@@ -634,7 +645,8 @@ input[type="file"] {
     background: #152038;
 }
 
-.render-panel .render-toggle input {
+.render-panel .render-toggle input,
+#autoLargestLabel input[type="checkbox"] {
     accent-color: var(--accent);
 }
 
