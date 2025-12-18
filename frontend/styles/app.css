@@ -134,6 +134,12 @@ h5 {
     box-shadow: inset 3px 0 0 var(--accent);
 }
 
+.rail button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
 .mobile-only {
     display: none;
 }
@@ -403,6 +409,12 @@ h5 {
     color: var(--muted);
 }
 
+.issues-controls input[type="search"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
 input[type="range"] {
     accent-color: var(--accent);
 }
@@ -455,6 +467,12 @@ input[type="range"]::-moz-range-thumb {
 
 .btn:hover {
     background: #152038;
+}
+
+.btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
 }
 
 .btn--primary {
@@ -629,6 +647,12 @@ input[type="file"] {
     background: #152038;
 }
 
+.icon-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
 .icon-btn.active {
     border-color: var(--accent);
     background: var(--accent-soft);
@@ -676,6 +700,13 @@ input[type="file"] {
 
 .render-panel .render-toggle:hover {
     background: #152038;
+}
+
+.render-panel .render-toggle:focus-within,
+#autoLargestLabel:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
 
 .render-panel .render-toggle input,
