@@ -204,6 +204,12 @@ export function createViewer(container, initialViewSettings = {}) {
         saoPass.params.saoKernelRadius = kernelRadius;
     }
 
+    function getHighlightLineWidthPx() {
+        const safeScale = Number.isFinite(sceneScale) && sceneScale > 0 ? sceneScale : 1;
+        const width = 4 / Math.sqrt(safeScale);
+        return THREE.MathUtils.clamp(width, 2, 6);
+    }
+
     function updateSceneScale(geometry) {
         if (!geometry) {
             sceneScale = 1;
@@ -626,7 +632,7 @@ export function createViewer(container, initialViewSettings = {}) {
 
         highlightLineMaterial = new LineMaterial({
             color: 0xff0000,
-            linewidth: 4,        // pixels (this is what we want)
+            linewidth: getHighlightLineWidthPx(),        // pixels (this is what we want)
             transparent: true,
             opacity: 1.0,
             depthTest: false      // draw on top
