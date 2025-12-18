@@ -497,6 +497,12 @@ export function createViewer(container, initialViewSettings = {}) {
             .addScaledVector(right.clone().negate(), 1.5);
         rimLight.target.position.copy(controls.target);
         rimLight.target.updateMatrixWorld();
+        if (currentEdges) {
+            const r = getMeshRadius();
+            const distance = camera.position.distanceTo(controls.target);
+            const ratio = r / Math.max(distance, 1e-3);
+            currentEdges.material.opacity = THREE.MathUtils.clamp(ratio * 0.9, 0.35, 0.95);
+        }
         if (animatingFocus) {
             camera.position.lerp(desiredCameraPos, 0.15);
             controls.target.lerp(desiredTarget, 0.18);
