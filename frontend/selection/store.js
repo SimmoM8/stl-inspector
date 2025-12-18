@@ -4,10 +4,38 @@ function createSelectionStore() {
     let mesh = null;
     let components = [];
     let selectedComponent = null;
+    let selection = { type: null, id: null, bounds: null, meta: null };
+    const listeners = new Set();
 
     const tempVec = new THREE.Vector3();
 
     const findComponent = (componentIndex) => components.find((c) => c.componentIndex === componentIndex) || null;
+
+    function emit() {
+        listeners.forEach((fn) => fn(selection));
+    }
+
+    function setSelection(next) {
+        selection = next
+            ? {
+                type: next.type ?? null,
+                id: next.id ?? null,
+                bounds: next.bounds ?? null,
+                meta: next.meta ?? null,
+            }
+            : { type: null, id: null, bounds: null, meta: null };
+        emit();
+    }
+
+    function getSelection() {
+        return selection;
+    }
+
+    function subscribe(listener) {
+        if (typeof listener !== "function") return () => {};
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+    }
 
     function computeBounds(component, offset = new THREE.Vector3()) {
         if (!mesh || !component) return null;
@@ -52,17 +80,19 @@ function createSelectionStore() {
     function selectComponent(componentIndex) {
         const comp = findComponent(componentIndex);
         selectedComponent = comp ? comp.componentIndex : null;
+        setSelection(comp ? { type: "component", id: comp.componentIndex, bounds: null, meta: null } : null);
         return comp;
     }
 
     function clearSelection() {
         selectedComponent = null;
+        setSelection(null);
     }
 
     function clear() {
         mesh = null;
         components = [];
-        selectedComponent = null;
+        clearSelection();
     }
 
     function getSelectedComponent() {
@@ -83,9 +113,12 @@ function createSelectionStore() {
         getComponentBounds,
         getSelectedComponent,
         getSelectedIndex: () => selectedComponent,
+        getSelection,
         selectComponent,
+        setSelection,
         setComponents,
         setMesh,
+        subscribe,
     };
 }
 
