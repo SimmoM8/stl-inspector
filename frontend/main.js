@@ -18,6 +18,25 @@ viewer.setViewSettings(DEFAULT_VIEW_SETTINGS);
 resetState();
 selectionStore.clear();
 
+function setSelection(selection) {
+    state.selection = selection
+        ? {
+            type: selection.type || null,
+            id: selection.id ?? null,
+            bounds: selection.bounds || null,
+        }
+        : { type: null, id: null, bounds: null };
+}
+
+function getSelectedIssueIndex() {
+    return state.selection?.type === "issue" ? state.selection.id ?? -1 : -1;
+}
+
+function getSelectedIssue() {
+    const idx = getSelectedIssueIndex();
+    return idx >= 0 ? state.issues[idx] : null;
+}
+
 const issueButtons = [];
 function toggleGroup(sev) {
     state.collapsedGroups[sev] = !state.collapsedGroups[sev];
@@ -63,17 +82,15 @@ function updateMiniStatus() {
     const highlightText = state.highlightEnabled ? "Highlights ON" : "Highlights OFF";
     const modeText = state.mode === "all" ? "Mode ALL" : "Mode STEP";
     let itemText = "Item –";
-    if (state.selectedIndex >= 0) {
-        const issue = state.issues[state.selectedIndex];
-        if (issue) {
-            const { items } = getIssueItems(issue);
-            const total = items.length;
-            if (state.mode === "all") {
-                itemText = total ? `Item All (${total})` : "Item All";
-            } else if (total) {
-                const safeIndex = ((state.itemIndex % total) + total) % total;
-                itemText = `Item ${safeIndex + 1} / ${total}`;
-            }
+    const selectedIssue = getSelectedIssue();
+    if (selectedIssue) {
+        const { items } = getIssueItems(selectedIssue);
+        const total = items.length;
+        if (state.mode === "all") {
+            itemText = total ? `Item All (${total})` : "Item All";
+        } else if (total) {
+            const safeIndex = ((state.itemIndex % total) + total) % total;
+            itemText = `Item ${safeIndex + 1} / ${total}`;
         }
     }
     dom.miniStatus.textContent = `${highlightText} • ${modeText} • ${itemText}`;
@@ -163,12 +180,13 @@ function computeComponents(meshData) {
 function applyComponentSelection(componentIndex) {
     const hasSelection = componentIndex !== null && componentIndex !== undefined;
     const comp = hasSelection ? selectionStore.selectComponent(componentIndex) : null;
+    let bounds = null;
 
     if (comp) {
-        state.selectedComponent = comp.componentIndex;
+        viewer.clearHighlights();
         viewer.showComponent(comp.faceIndices, { refitCamera: false });
         const offset = viewer.getMeshOffset();
-        const bounds = selectionStore.getComponentBounds(comp.componentIndex, offset);
+        bounds = selectionStore.getComponentBounds(comp.componentIndex, offset);
         if (bounds?.sphere || bounds?.box) {
             viewer.frameBounds(bounds.sphere || bounds.box, { animate: true });
         } else {
@@ -176,15 +194,16 @@ function applyComponentSelection(componentIndex) {
         }
     } else {
         selectionStore.clearSelection();
-        state.selectedComponent = null;
         viewer.showAllComponents({ refitCamera: false });
-        const bounds = viewer.getCurrentBounds();
-        if (bounds?.sphere || bounds?.box) {
-            viewer.frameBounds(bounds.sphere || bounds.box, { animate: true });
+        const allBounds = viewer.getCurrentBounds();
+        bounds = allBounds;
+        if (allBounds?.sphere || allBounds?.box) {
+            viewer.frameBounds(allBounds.sphere || allBounds.box, { animate: true });
         } else {
             viewer.frameView();
         }
     }
+    setSelection(comp ? { type: "component", id: comp.componentIndex, bounds: bounds?.box || null } : null);
     refreshUI();
 }
 
@@ -285,7 +304,7 @@ function syncViewControls() {
 }
 
 function renderSelection() {
-    const issue = state.issues[state.selectedIndex];
+    const issue = getSelectedIssue();
     updateActiveButtons(state, issueButtons);
     const iconClass = state.highlightEnabled ? "bi-lightbulb-fill" : "bi-lightbulb";
     dom.highlightToggleBtn.innerHTML = `<i class="bi ${iconClass}"></i>`;
@@ -295,12 +314,27 @@ function renderSelection() {
 
     if (!issue) {
         if (state.highlightEnabled) viewer.clearHighlights();
-        renderDetails(dom, null, {
-            description: "",
-            pageLabel: "–",
-            hint: "Upload an STL to begin. Hover issues to preview, use ←/→ to step.",
-            disableNav: true,
-        });
+        if (state.selection?.type === "component") {
+            const comp = selectionStore.getComponent(state.selection.id);
+            const placeholderIssue = comp
+                ? { severity: "info", type: `Component ${comp.componentIndex}`, message: "" }
+                : null;
+            renderDetails(dom, placeholderIssue, {
+                description: comp
+                    ? `Faces: ${comp.counts.numFaces}, Vertices: ${comp.counts.numVertices}`
+                    : "",
+                pageLabel: comp ? `Component ${comp.componentIndex}` : "Component",
+                hint: "Component isolated. Select an issue to inspect details.",
+                disableNav: true,
+            });
+        } else {
+            renderDetails(dom, null, {
+                description: "",
+                pageLabel: "–",
+                hint: "Upload an STL to begin. Hover issues to preview, use ←/→ to step.",
+                disableNav: true,
+            });
+        }
         return;
     }
 
@@ -351,7 +385,11 @@ function renderSelection() {
 }
 
 function selectIssue(idx) {
-    state.selectedIndex = idx;
+    const issue = state.issues[idx];
+    selectionStore.clearSelection();
+    viewer.showAllComponents({ refitCamera: false });
+    const bounds = viewer.getCurrentBounds()?.box || null;
+    setSelection(issue ? { type: "issue", id: idx, bounds } : null);
     state.itemIndex = 0;
     state.mode = "step";
     renderSelection();
@@ -359,19 +397,19 @@ function selectIssue(idx) {
 
 function clearSelection() {
     viewer.clearHighlights();
-    state.selectedIndex = -1;
     state.itemIndex = 0;
     state.mode = "step";
-    state.selectedComponent = null;
     selectionStore.clearSelection();
+    viewer.showAllComponents({ refitCamera: false });
+    setSelection(null);
     refreshUI();
     updateToolbarVisibility(state, dom);
 }
 
 function moveItem(delta) {
     state.mode = "step"; // auto-switch to stepping when iterating
-    if (state.selectedIndex < 0) return;
-    const issue = state.issues[state.selectedIndex];
+    const issue = getSelectedIssue();
+    if (!issue) return;
     const { items } = getIssueItems(issue);
     const total = items.length;
     if (!total) return;
@@ -424,11 +462,7 @@ function restoreSelectionHighlight() {
             viewer.clearHighlights();
             return;
         }
-        if (state.selectedIndex < 0) {
-            viewer.clearHighlights();
-            return;
-        }
-        const issue = state.issues[state.selectedIndex];
+        const issue = getSelectedIssue();
         if (!issue) {
             viewer.clearHighlights();
             return;
@@ -478,14 +512,13 @@ dom.fileInput.addEventListener("change", async () => {
         dom.issuesEl.innerHTML = "";
         issueButtons.length = 0;
         state.issues = issues;
-        state.selectedIndex = -1;
         state.itemIndex = 0;
         state.mode = "step";
         state.components = computeComponents(data.mesh);
         selectionStore.setMesh(data.mesh);
         selectionStore.setComponents(state.components);
         selectionStore.clearSelection();
-        state.selectedComponent = null;
+        setSelection(null);
 
         state.summary = data.summary || null;
 
@@ -509,7 +542,7 @@ dom.fileInput.addEventListener("change", async () => {
         } else {
             viewer.showAllComponents({ refitCamera: false });
             selectionStore.clearSelection();
-            state.selectedComponent = null;
+            setSelection(null);
             refreshUI();
         }
 
@@ -521,7 +554,8 @@ dom.fileInput.addEventListener("change", async () => {
 dom.issuesFilterButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
         state.issueFilter = btn.dataset.filter || "all";
-        if (state.selectedIndex >= 0 && !issueMatchesFilters(state.issues[state.selectedIndex])) {
+        const selectedIssue = getSelectedIssue();
+        if (selectedIssue && !issueMatchesFilters(selectedIssue)) {
             clearSelection();
         }
         renderIssuesGrouped(
@@ -539,7 +573,8 @@ dom.issuesFilterButtons.forEach((btn) => {
 
 dom.issuesSearch.addEventListener("input", () => {
     state.issuesSearch = dom.issuesSearch.value;
-    if (state.selectedIndex >= 0 && !issueMatchesFilters(state.issues[state.selectedIndex])) {
+    const selectedIssue = getSelectedIssue();
+    if (selectedIssue && !issueMatchesFilters(selectedIssue)) {
         clearSelection();
     }
     renderIssuesGrouped(

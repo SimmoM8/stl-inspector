@@ -1,11 +1,14 @@
 function createDefaultState() {
     return {
         issues: [],
-        selectedIndex: -1,
+        selection: {
+            type: null, // "component" | "issue" | "tool" | null
+            id: null,
+            bounds: null,
+        },
         itemIndex: 0,
         mode: "step",
         components: [],
-        selectedComponent: null,
         highlightEnabled: true,
         summary: null,
         issueFilter: "all",

@@ -73,7 +73,8 @@ function renderComponentsList(state, dom, applyComponentSelection) {
         const facesText = `${comp.counts.numFaces} faces`;
         const vertsText = `${comp.counts.numVertices} verts`;
         btn.textContent = `Component ${comp.componentIndex} (${facesText}, ${vertsText})`;
-        btn.classList.toggle("active", state.selectedComponent === comp.componentIndex);
+        const isSelected = state.selection?.type === "component" && state.selection.id === comp.componentIndex;
+        btn.classList.toggle("active", isSelected);
         btn.addEventListener("click", () => {
             applyComponentSelection(comp.componentIndex);
         });
@@ -111,7 +112,8 @@ function renderDetails(dom, issue, meta) {
 
 function updateActiveButtons(state, issueButtons) {
     issueButtons.forEach((info) => {
-        info.el.classList.toggle("active", info.index === state.selectedIndex);
+        const isSelected = state.selection?.type === "issue" && state.selection.id === info.index;
+        info.el.classList.toggle("active", isSelected);
     });
 }
 
@@ -126,8 +128,8 @@ function updateSummary(dom, summary) {
 }
 
 function updateToolbarVisibility(state, dom) {
-    const hasIssueSelection = state.selectedIndex >= 0;
-    const hasComponentSelection = state.selectedComponent !== null;
+    const hasIssueSelection = state.selection?.type === "issue";
+    const hasComponentSelection = state.selection?.type === "component";
     if (dom.cameraToolbar) dom.cameraToolbar.classList.toggle("hidden", false); // always visible
     if (dom.inspectToolbar) dom.inspectToolbar.classList.toggle("hidden", !(hasIssueSelection || hasComponentSelection));
     if (dom.renderToolbar) dom.renderToolbar.classList.toggle("hidden", !(hasIssueSelection || hasComponentSelection));
