@@ -1,11 +1,14 @@
 import * as THREE from "three";
+
 import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 import * as BufferGeometryUtils from "https://unpkg.com/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js";
+
 import { EffectComposer } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/RenderPass.js";
 import { SAOPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/SAOPass.js";
 import { ShaderPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/ShaderPass.js";
 import { FXAAShader } from "https://unpkg.com/three@0.160.0/examples/jsm/shaders/FXAAShader.js";
+
 import { Line2 } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/Line2.js";
 import { LineMaterial } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineMaterial.js";
 import { LineGeometry } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineGeometry.js";
@@ -23,7 +26,6 @@ export function createViewer(container, initialViewSettings = {}) {
     let basePositions = null; // Float32Array
     let baseIndices = null;   // Uint32Array
     let baseFaceCount = 0;
-    let baseVertexCount = 0;
     let faceIndexMap = null;   // Map original face index -> current face index (or null for identity)
     let vertexIndexMap = null; // Map original vertex index -> current vertex index (or null for identity)
     let lastFaceList = null; // remember last applied component for settings refresh
@@ -199,15 +201,18 @@ export function createViewer(container, initialViewSettings = {}) {
         return { sourceGeom, displayGeom, faceMap: fMap, vertexMap: vMap };
     }
 
+    // Scale
+    function getSafeScale() {
+        return Number.isFinite(sceneScale) && sceneScale > 0 ? sceneScale : 1;
+    }
+
     function updateSaoKernelRadius() {
-        const safeScale = Number.isFinite(sceneScale) && sceneScale > 0 ? sceneScale : 1;
-        const kernelRadius = THREE.MathUtils.clamp(safeScale * 0.02, 2, 24);
+        const kernelRadius = THREE.MathUtils.clamp(getSafeScale() * 0.02, 2, 24);
         saoPass.params.saoKernelRadius = kernelRadius;
     }
 
     function getHighlightLineWidthPx() {
-        const safeScale = Number.isFinite(sceneScale) && sceneScale > 0 ? sceneScale : 1;
-        const width = 4 / Math.sqrt(safeScale);
+        const width = 4 / Math.sqrt(getSafeScale());
         return THREE.MathUtils.clamp(width, 2, 6);
     }
 
@@ -239,8 +244,9 @@ export function createViewer(container, initialViewSettings = {}) {
         updateSaoKernelRadius();
     }
 
+    // Camera
     function updateCameraClipping() {
-        const safeScale = Number.isFinite(sceneScale) && sceneScale > 0 ? sceneScale : 1;
+        const safeScale = getSafeScale();
         const near = Math.max(0.01, safeScale / 1000);
         const far = Math.max(near * 1000, safeScale * 10);
         camera.near = near;
@@ -248,9 +254,10 @@ export function createViewer(container, initialViewSettings = {}) {
         camera.updateProjectionMatrix();
     }
 
+    // Shadows
     function updateShadowCameraBounds() {
         if (!keyLight.shadow || !keyLight.shadow.camera) return;
-        const safeScale = Number.isFinite(sceneScale) && sceneScale > 0 ? sceneScale : 1;
+        const safeScale = getSafeScale();
         const extent = safeScale * 0.6;
         const near = Math.max(0.1, safeScale * 0.01);
         const far = safeScale * 6;
@@ -264,8 +271,9 @@ export function createViewer(container, initialViewSettings = {}) {
         cam.updateProjectionMatrix();
     }
 
+    // Helpers
     function getHelperRadius(geometry) {
-        const fallback = Number.isFinite(sceneScale) && sceneScale > 0 ? sceneScale * 0.5 : 1;
+        const fallback = getSafeScale() * 0.5;
         if (!geometry || !geometry.boundingSphere) return fallback;
         const r = geometry.boundingSphere.radius;
         return Number.isFinite(r) && r > 0 ? r : fallback;
@@ -423,8 +431,6 @@ export function createViewer(container, initialViewSettings = {}) {
             baseIndices[i * 3 + 2] = faces[i][2];
         }
         baseFaceCount = faces.length;
-        baseVertexCount = vertices.length;
-
         applyGeometry(null, true);
         setIdentityMaps();
     }
@@ -519,6 +525,7 @@ export function createViewer(container, initialViewSettings = {}) {
     }
     animate();
 
+    // Highlighting
     function clearHighlights() {
         if (highlightMesh) {
             if (highlightMesh.parent) {
