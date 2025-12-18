@@ -62,6 +62,7 @@ function renderDetails(dom, issue, meta) {
     if (!issue) {
         dom.issueTitle.textContent = "No issue selected";
         dom.issueMeta.textContent = "";
+        dom.issuePageLabel.textContent = "";
         dom.issueIndices.textContent = "";
         dom.prevBtn.disabled = true;
         dom.nextBtn.disabled = true;
@@ -76,6 +77,7 @@ function renderDetails(dom, issue, meta) {
     if (issue.count != null) metaParts.push(`Count: ${issue.count}`);
     dom.issueMeta.textContent = metaParts.join(" • ");
 
+    dom.issuePageLabel.textContent = meta.pageLabel || "";
     dom.issueIndices.textContent = meta.description;
     dom.prevBtn.disabled = meta.disableNav;
     dom.nextBtn.disabled = meta.disableNav;

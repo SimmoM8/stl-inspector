@@ -19,6 +19,7 @@ const dom = {
     get statusBubble() { return byId("statusBubble"); },
     get issueTitle() { return byId("issueTitle"); },
     get issueMeta() { return byId("issueMeta"); },
+    get issuePageLabel() { return byId("issuePageLabel"); },
     get issueIndices() { return byId("issueIndices"); },
     get prevBtn() { return byId("prevBtn"); },
     get nextBtn() { return byId("nextBtn"); },
