@@ -209,6 +209,22 @@ export function createViewer(container, initialViewSettings = {}) {
         camera.updateProjectionMatrix();
     }
 
+    function updateShadowCameraBounds() {
+        if (!keyLight.shadow || !keyLight.shadow.camera) return;
+        const safeScale = Number.isFinite(sceneScale) && sceneScale > 0 ? sceneScale : 1;
+        const extent = safeScale * 0.6;
+        const near = Math.max(0.01, safeScale / 1000);
+        const far = Math.max(near * 1000, safeScale * 10);
+        const cam = keyLight.shadow.camera;
+        cam.left = -extent;
+        cam.right = extent;
+        cam.top = extent;
+        cam.bottom = -extent;
+        cam.near = near;
+        cam.far = far;
+        cam.updateProjectionMatrix();
+    }
+
     function fitHelpersAndCamera(geometry, mesh) {
         const sphere = geometry.boundingSphere;
         const r = sphere.radius;
@@ -287,6 +303,7 @@ export function createViewer(container, initialViewSettings = {}) {
         rebuildEdges();
         applyMaterialSettings();
         updateSceneScale(displayGeom);
+        updateShadowCameraBounds();
 
         faceIndexMap = faceList && faceList.length ? faceMap : null;
         vertexIndexMap = faceList && faceList.length ? vMap : null;
