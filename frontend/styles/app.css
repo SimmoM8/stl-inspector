@@ -252,9 +252,32 @@ h5 {
     justify-content: center;
     text-align: center;
     color: var(--muted);
-    font-size: 14px;
     padding: 16px;
     pointer-events: none;
+    z-index: 2;
+}
+
+.empty-card {
+    padding: var(--s6) var(--s7);
+    border-radius: var(--r3);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(10, 16, 30, 0.75);
+    box-shadow: var(--shadow1);
+    backdrop-filter: blur(10px);
+    max-width: 320px;
+}
+
+.empty-title {
+    font-size: 16px;
+    color: var(--text);
+    font-weight: 600;
+    margin-bottom: var(--s2);
+}
+
+.empty-subtitle {
+    font-size: var(--fs-sm);
+    line-height: var(--lh-normal);
+    color: var(--muted);
 }
 
 .card {
