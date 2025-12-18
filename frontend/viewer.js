@@ -8,6 +8,7 @@ import { RenderPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postpro
 import { SAOPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/SAOPass.js";
 import { ShaderPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/ShaderPass.js";
 import { FXAAShader } from "https://unpkg.com/three@0.160.0/examples/jsm/shaders/FXAAShader.js";
+import { createFrameTarget } from "./camera/frame.js";
 
 import { Line2 } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/Line2.js";
 import { LineMaterial } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineMaterial.js";
@@ -41,6 +42,8 @@ export function createViewer(container, initialViewSettings = {}) {
     let lastFaceList = null; // remember last applied component for settings refresh
     let sourceGeometry = null; // stable indexed geometry for highlighting/mapping
     const drawBufferSize = new THREE.Vector2();
+    const tempBox = new THREE.Box3();
+    const tempSphere = new THREE.Sphere();
     const baseMeshColor = new THREE.Color(0xf2f4f7);
     const viewSettings = {
         edgeThreshold: 12,
@@ -144,6 +147,9 @@ export function createViewer(container, initialViewSettings = {}) {
     controls.screenSpacePanning = true;
     desiredTarget.copy(controls.target);
     desiredCameraPos.copy(camera.position);
+    const frameTarget = createFrameTarget(camera, controls, {
+        fallbackRadius: () => getSafeScale() * 0.5,
+    });
     // Optional: constrain zoom distances once mesh is loaded
     // we’ll set min/max in setMeshFromApi after we know the bounding sphere
 
@@ -216,6 +222,50 @@ export function createViewer(container, initialViewSettings = {}) {
         return Number.isFinite(sceneScale) && sceneScale > 0 ? sceneScale : 1;
     }
 
+    function getMeshOffset() {
+        return currentMesh ? currentMesh.position.clone() : new THREE.Vector3();
+    }
+
+    function getWorldBounds(geometry = currentMesh?.geometry) {
+        if (!geometry) return null;
+        if (!geometry.boundingBox) geometry.computeBoundingBox();
+        if (!geometry.boundingSphere) geometry.computeBoundingSphere();
+        const box = geometry.boundingBox ? geometry.boundingBox.clone() : null;
+        const sphere = geometry.boundingSphere ? geometry.boundingSphere.clone() : null;
+        if (currentMesh && currentMesh.position) {
+            if (box) box.translate(currentMesh.position);
+            if (sphere) sphere.center.add(currentMesh.position);
+        }
+        return { box, sphere };
+    }
+
+    function applyFrameToBounds(boundsOrSphere, options = {}) {
+        const { animate = false } = options;
+        const frame = frameTarget(boundsOrSphere, { apply: false });
+        if (!frame) return null;
+
+        const minDistance = Math.max(0.01, frame.minDistance);
+        controls.minDistance = minDistance;
+        controls.maxDistance = Math.max(minDistance * 2, frame.maxDistance);
+        camera.near = frame.near;
+        camera.far = frame.far;
+        camera.updateProjectionMatrix();
+
+        if (animate) {
+            desiredTarget.copy(frame.target);
+            desiredCameraPos.copy(frame.position);
+            animatingFocus = true;
+        } else {
+            animatingFocus = false;
+            controls.target.copy(frame.target);
+            camera.position.copy(frame.position);
+            desiredTarget.copy(frame.target);
+            desiredCameraPos.copy(frame.position);
+            controls.update();
+        }
+        return frame;
+    }
+
     function updateSaoKernelRadius() {
         const kernelRadius = THREE.MathUtils.clamp(getSafeScale() * 0.02, 2, 24);
         saoPass.params.saoKernelRadius = kernelRadius;
@@ -257,16 +307,6 @@ export function createViewer(container, initialViewSettings = {}) {
         const diag = size.length();
         sceneScale = diag > 0 ? diag : 1;
         updateSaoKernelRadius();
-    }
-
-    // Camera
-    function updateCameraClipping() {
-        const safeScale = getSafeScale();
-        const near = Math.max(0.01, safeScale / 1000);
-        const far = Math.max(near * 1000, safeScale * 10);
-        camera.near = near;
-        camera.far = far;
-        camera.updateProjectionMatrix();
     }
 
     // Shadows
@@ -320,23 +360,11 @@ export function createViewer(container, initialViewSettings = {}) {
         ground.position.y = 0;
     }
 
-    function fitHelpersAndCamera(geometry, mesh) {
-        const r = getHelperRadius(geometry);
+    function fitHelpersAndCamera(geometry) {
         updateHelperScales(geometry);
-
-        const target = new THREE.Vector3(0, mesh.position.y + r * 0.2, 0);
-        controls.target.copy(target);
-        const fov = THREE.MathUtils.degToRad(camera.fov);
-        const distance = (r / Math.sin(fov / 2)) * 1.15;
-        camera.position.set(target.x, target.y + r * 0.5, target.z + distance);
-        updateCameraClipping();
-
-        controls.minDistance = r * 0.2;
-        controls.maxDistance = r * 10;
-        controls.update();
-
-        desiredTarget.copy(target);
-        desiredCameraPos.copy(camera.position);
+        const bounds = getWorldBounds(geometry);
+        if (!bounds) return;
+        applyFrameToBounds(bounds.sphere || bounds.box, { animate: false });
     }
 
     function rebuildEdges() {
@@ -423,7 +451,7 @@ export function createViewer(container, initialViewSettings = {}) {
         vertexIndexMap = faceList && faceList.length ? vMap : null;
 
         if (refitCamera) {
-            fitHelpersAndCamera(displayGeom, currentMesh);
+            fitHelpersAndCamera(displayGeom);
         } else {
             // keep helpers roughly scaled to new geometry without moving camera/target
             updateHelperScales(displayGeom);
@@ -465,14 +493,16 @@ export function createViewer(container, initialViewSettings = {}) {
         setIdentityMaps();
     }
 
-    function showComponent(faceIndices) {
+    function showComponent(faceIndices, options = {}) {
+        const { refitCamera = true } = options;
         if (!basePositions || !baseIndices) return;
-        applyGeometry(faceIndices, true);
+        applyGeometry(faceIndices, refitCamera);
     }
 
-    function showAllComponents() {
+    function showAllComponents(options = {}) {
+        const { refitCamera = true } = options;
         if (!basePositions || !baseIndices) return;
-        applyGeometry(null, true);
+        applyGeometry(null, refitCamera);
         setIdentityMaps();
     }
 
@@ -818,23 +848,22 @@ export function createViewer(container, initialViewSettings = {}) {
         gridHelper.position.y = floorY;
         ground.position.y = floorY;
 
-        fitHelpersAndCamera(currentMesh.geometry, currentMesh);
-        updateCameraClipping();
+        fitHelpersAndCamera(currentMesh.geometry);
     }
 
     function frameView() {
-        if (!currentMesh || !currentMesh.geometry.boundingSphere) return;
-        const sphere = currentMesh.geometry.boundingSphere;
-        const r = getMeshRadius();
-        const center = sphere.center.clone().add(currentMesh.position);
-        const fov = THREE.MathUtils.degToRad(camera.fov);
-        const distance = (r / Math.sin(fov / 2)) * 1.15;
+        if (!currentMesh) return;
+        const bounds = getWorldBounds(currentMesh.geometry);
+        if (!bounds) return;
+        applyFrameToBounds(bounds.sphere || bounds.box, { animate: true });
+    }
 
-        const offset = new THREE.Vector3(0, r * 0.2, distance);
-        desiredTarget.copy(center);
-        desiredCameraPos.copy(center).add(offset);
-        updateCameraClipping();
-        animatingFocus = true;
+    function frameBounds(boundsOrSphere, options = {}) {
+        return applyFrameToBounds(boundsOrSphere, options);
+    }
+
+    function getCurrentBounds() {
+        return getWorldBounds(currentMesh?.geometry);
     }
 
     function focusFace(faceIndex) {
@@ -952,6 +981,9 @@ export function createViewer(container, initialViewSettings = {}) {
         getSceneScale,
         resetViewSettings,
         centerView,
-        frameView
+        frameBounds,
+        frameView,
+        getCurrentBounds,
+        getMeshOffset
     };
 }

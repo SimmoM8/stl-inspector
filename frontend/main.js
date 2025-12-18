@@ -1,6 +1,7 @@
 import { createViewer } from "./viewer.js";
 import { getAnalyzeUrl, DEFAULT_VIEW_SETTINGS } from "./config.js";
 import { state, resetState } from "./state.js";
+import { selectionStore } from "./selection/store.js";
 import { dom } from "./ui/dom.js";
 import {
     renderIssuesGrouped,
@@ -15,6 +16,7 @@ const viewer = createViewer(dom.viewerContainer);
 viewer.setViewSettings(DEFAULT_VIEW_SETTINGS);
 
 resetState();
+selectionStore.clear();
 
 const issueButtons = [];
 function toggleGroup(sev) {
@@ -159,13 +161,29 @@ function computeComponents(meshData) {
 }
 
 function applyComponentSelection(componentIndex) {
-    state.selectedComponent = componentIndex;
-    const comp = state.components.find((c) => c.componentIndex === componentIndex);
+    const hasSelection = componentIndex !== null && componentIndex !== undefined;
+    const comp = hasSelection ? selectionStore.selectComponent(componentIndex) : null;
+
     if (comp) {
-        viewer.showComponent(comp.faceIndices);
+        state.selectedComponent = comp.componentIndex;
+        viewer.showComponent(comp.faceIndices, { refitCamera: false });
+        const offset = viewer.getMeshOffset();
+        const bounds = selectionStore.getComponentBounds(comp.componentIndex, offset);
+        if (bounds?.sphere || bounds?.box) {
+            viewer.frameBounds(bounds.sphere || bounds.box, { animate: true });
+        } else {
+            viewer.frameView();
+        }
     } else {
-        viewer.showAllComponents();
+        selectionStore.clearSelection();
         state.selectedComponent = null;
+        viewer.showAllComponents({ refitCamera: false });
+        const bounds = viewer.getCurrentBounds();
+        if (bounds?.sphere || bounds?.box) {
+            viewer.frameBounds(bounds.sphere || bounds.box, { animate: true });
+        } else {
+            viewer.frameView();
+        }
     }
     refreshUI();
 }
@@ -345,6 +363,7 @@ function clearSelection() {
     state.itemIndex = 0;
     state.mode = "step";
     state.selectedComponent = null;
+    selectionStore.clearSelection();
     refreshUI();
     updateToolbarVisibility(state, dom);
 }
@@ -463,6 +482,9 @@ dom.fileInput.addEventListener("change", async () => {
         state.itemIndex = 0;
         state.mode = "step";
         state.components = computeComponents(data.mesh);
+        selectionStore.setMesh(data.mesh);
+        selectionStore.setComponents(state.components);
+        selectionStore.clearSelection();
         state.selectedComponent = null;
 
         state.summary = data.summary || null;
@@ -485,7 +507,8 @@ dom.fileInput.addEventListener("change", async () => {
             );
             applyComponentSelection(largest.componentIndex);
         } else {
-            viewer.showAllComponents();
+            viewer.showAllComponents({ refitCamera: false });
+            selectionStore.clearSelection();
             state.selectedComponent = null;
             refreshUI();
         }
@@ -542,9 +565,7 @@ dom.showAllBtn.addEventListener("click", () => {
 });
 
 dom.showAllComponentsBtn.addEventListener("click", () => {
-    state.selectedComponent = null;
-    viewer.showAllComponents();
-    refreshUI();
+    applyComponentSelection(null);
 });
 
 dom.autoLargestInput.addEventListener("change", () => {
