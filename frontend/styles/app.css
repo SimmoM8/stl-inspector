@@ -407,6 +407,40 @@ input[type="range"] {
     accent-color: var(--accent);
 }
 
+input[type="range"]::-webkit-slider-runnable-track {
+    height: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--stroke);
+    border-radius: 999px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    margin-top: -5px;
+    border-radius: 50%;
+    border: 1px solid var(--stroke);
+    background: var(--accent);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+input[type="range"]::-moz-range-track {
+    height: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--stroke);
+    border-radius: 999px;
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid var(--stroke);
+    background: var(--accent);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
 .btn {
     padding: var(--s3) var(--s5);
     border-radius: var(--r2);
@@ -609,10 +643,15 @@ input[type="file"] {
 .render-panel .slider {
     grid-column: 1 / -1;
     display: flex;
-    gap: 6px;
+    gap: var(--s3);
     align-items: center;
     color: var(--muted);
-    font-size: 12px;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-normal);
+    padding: var(--s2) var(--s3);
+    border-radius: var(--r2);
+    border: 1px solid var(--stroke);
+    background: var(--surface-2);
 }
 
 .render-panel input[type="range"] {
@@ -624,9 +663,9 @@ input[type="file"] {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 4px 6px;
-    border-radius: 8px;
+    gap: var(--s2);
+    padding: var(--s2) var(--s3);
+    border-radius: var(--r2);
     border: 1px solid var(--stroke);
     background: var(--surface-2);
     color: var(--text);
@@ -642,6 +681,13 @@ input[type="file"] {
 .render-panel .render-toggle input,
 #autoLargestLabel input[type="checkbox"] {
     accent-color: var(--accent);
+}
+
+#autoLargestLabel input[type="checkbox"],
+.render-panel .render-toggle input[type="checkbox"] {
+    margin: 0;
+    width: 14px;
+    height: 14px;
 }
 
 .upload-panel {
