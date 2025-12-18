@@ -251,8 +251,8 @@ export function createViewer(container, initialViewSettings = {}) {
         if (!keyLight.shadow || !keyLight.shadow.camera) return;
         const safeScale = Number.isFinite(sceneScale) && sceneScale > 0 ? sceneScale : 1;
         const extent = safeScale * 0.6;
-        const near = Math.max(0.01, safeScale / 1000);
-        const far = Math.max(near * 1000, safeScale * 10);
+        const near = Math.max(0.1, safeScale * 0.01);
+        const far = safeScale * 6;
         const cam = keyLight.shadow.camera;
         cam.left = -extent;
         cam.right = extent;
