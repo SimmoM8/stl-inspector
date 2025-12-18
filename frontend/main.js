@@ -648,7 +648,9 @@ dom.resetViewBtn.addEventListener("click", () => {
 document.addEventListener("keydown", (event) => {
     const target = event.target;
     const tagName = target && target.tagName ? target.tagName.toLowerCase() : "";
-    if (tagName === "input" || tagName === "textarea") return;
+    if (tagName === "input" || tagName === "textarea" || tagName === "select" || target?.isContentEditable) {
+        return;
+    }
 
     switch (event.key) {
         case "ArrowLeft":
