@@ -210,6 +210,12 @@ export function createViewer(container, initialViewSettings = {}) {
         return THREE.MathUtils.clamp(width, 2, 6);
     }
 
+    function getMeshRadius() {
+        if (!currentMesh || !currentMesh.geometry || !currentMesh.geometry.boundingSphere) return 1;
+        const r = currentMesh.geometry.boundingSphere.radius;
+        return Number.isFinite(r) && r > 0 ? r : 1;
+    }
+
     function updateSceneScale(geometry) {
         if (!geometry) {
             sceneScale = 1;
@@ -689,9 +695,7 @@ export function createViewer(container, initialViewSettings = {}) {
         // Preserve current camera offset; only shorten for tighter framing, never lengthen.
         const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
         const hasOffset = offset.lengthSq() >= 1e-6;
-        const r = preferredRadius || (currentMesh.geometry.boundingSphere
-            ? currentMesh.geometry.boundingSphere.radius
-            : 1);
+        const r = preferredRadius || getMeshRadius();
         const desiredDistance = r * 1.1; // tighter framing
 
         if (!hasOffset) {
@@ -702,6 +706,10 @@ export function createViewer(container, initialViewSettings = {}) {
             const targetDist = Math.min(currentDist, desiredDistance);
             offset.setLength(targetDist);
         }
+        const minDist = Number.isFinite(controls.minDistance) ? controls.minDistance : 0;
+        const maxDist = Number.isFinite(controls.maxDistance) ? controls.maxDistance : Infinity;
+        const clampedDist = THREE.MathUtils.clamp(offset.length(), minDist, maxDist);
+        offset.setLength(clampedDist);
         desiredTarget.copy(point);
         desiredCameraPos.copy(point).add(offset);
         animatingFocus = true;
@@ -724,7 +732,7 @@ export function createViewer(container, initialViewSettings = {}) {
     function frameView() {
         if (!currentMesh || !currentMesh.geometry.boundingSphere) return;
         const sphere = currentMesh.geometry.boundingSphere;
-        const r = sphere.radius;
+        const r = getMeshRadius();
         const center = sphere.center.clone().add(currentMesh.position);
 
         const offset = new THREE.Vector3(0, r * 0.2, r * 2.5);
@@ -741,7 +749,7 @@ export function createViewer(container, initialViewSettings = {}) {
         const mapped = mapFaceList([faceIndex]);
         if (!mapped.length) return;
         const centroid = faceCentroid(mapped[0]);
-        const r = currentMesh.geometry.boundingSphere ? currentMesh.geometry.boundingSphere.radius : 1;
+        const r = getMeshRadius();
         moveCameraToPoint(centroid, r * 0.6);
         controls.update();
     }
@@ -753,7 +761,7 @@ export function createViewer(container, initialViewSettings = {}) {
         const mapped = mapEdgePairs([edgePair]);
         if (!mapped.length) return;
         const mid = edgeMidpoint(mapped[0]);
-        const r = currentMesh.geometry.boundingSphere ? currentMesh.geometry.boundingSphere.radius : 1;
+        const r = getMeshRadius();
         moveCameraToPoint(mid, r * 0.6);
         controls.update();
     }
