@@ -555,6 +555,21 @@ input[type="file"] {
     gap: 6px;
 }
 
+#cameraToolbar {
+    right: 16px;
+    top: 64px;
+}
+
+#inspectToolbar {
+    right: 16px;
+    top: 214px;
+}
+
+#renderToolbar {
+    right: 16px;
+    bottom: 16px;
+}
+
 .tool-column button,
 .render-panel button {
     width: 34px;
