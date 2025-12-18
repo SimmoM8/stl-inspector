@@ -50,6 +50,18 @@ function getIssueItems(issue) {
     return { kind: "none", items: [] };
 }
 
+function issueMatchesFilters(issue) {
+    if (!issue) return false;
+    const filter = (state.issueFilter || "all").toLowerCase();
+    const sev = (issue.severity || "info").toLowerCase();
+    if (filter !== "all" && sev !== filter) return false;
+    const search = (state.issuesSearch || "").trim().toLowerCase();
+    if (!search) return true;
+    const typeText = (issue.type || "").toLowerCase();
+    const messageText = (issue.message || "").toLowerCase();
+    return typeText.includes(search) || messageText.includes(search);
+}
+
 function computeComponents(meshData) {
     const faces = Array.isArray(meshData.faces) ? meshData.faces : [];
     if (!faces.length) return [];
@@ -402,12 +414,8 @@ dom.fileInput.addEventListener("change", async () => {
 dom.issuesFilterButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
         state.issueFilter = btn.dataset.filter || "all";
-        if (state.selectedIndex >= 0 && state.issueFilter !== "all") {
-            const selectedIssue = state.issues[state.selectedIndex];
-            const sev = selectedIssue ? (selectedIssue.severity || "info").toLowerCase() : "info";
-            if (sev !== state.issueFilter) {
-                clearSelection();
-            }
+        if (state.selectedIndex >= 0 && !issueMatchesFilters(state.issues[state.selectedIndex])) {
+            clearSelection();
         }
         renderIssuesGrouped(
             state,
@@ -420,6 +428,23 @@ dom.issuesFilterButtons.forEach((btn) => {
         );
         refreshUI();
     });
+});
+
+dom.issuesSearch.addEventListener("input", () => {
+    state.issuesSearch = dom.issuesSearch.value;
+    if (state.selectedIndex >= 0 && !issueMatchesFilters(state.issues[state.selectedIndex])) {
+        clearSelection();
+    }
+    renderIssuesGrouped(
+        state,
+        dom,
+        issueButtons,
+        selectIssue,
+        toggleGroup,
+        previewIssue,
+        restoreSelectionHighlight
+    );
+    refreshUI();
 });
 
 dom.clearBtn.addEventListener("click", clearSelection);

@@ -3,10 +3,16 @@ function renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup,
     issueButtons.length = 0;
 
     const filter = (state.issueFilter || "all").toLowerCase();
+    const search = (state.issuesSearch || "").trim().toLowerCase();
     const groups = { error: [], warning: [], info: [] };
     state.issues.forEach((issue, idx) => {
         const sev = (issue.severity || "info").toLowerCase();
         if (!groups[sev]) groups[sev] = [];
+        if (search) {
+            const typeText = (issue.type || "").toLowerCase();
+            const messageText = (issue.message || "").toLowerCase();
+            if (!typeText.includes(search) && !messageText.includes(search)) return;
+        }
         groups[sev].push({ issue, idx });
     });
 

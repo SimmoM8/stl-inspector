@@ -16,6 +16,7 @@ const dom = {
     get issuesEl() { return byId("issues"); },
     get issueDetails() { return byId("issueDetails"); },
     get issuesFilterButtons() { return all("#issuesFilter button"); },
+    get issuesSearch() { return byId("issuesSearch"); },
     get clearBtn() { return byId("clearBtn"); },
     get statusBubble() { return byId("statusBubble"); },
     get issueTitle() { return byId("issueTitle"); },

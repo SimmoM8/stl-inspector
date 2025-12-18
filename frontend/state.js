@@ -9,6 +9,7 @@ function createDefaultState() {
         highlightEnabled: true,
         summary: null,
         issueFilter: "all",
+        issuesSearch: "",
         activePanel: "issues",
         collapsedGroups: {
             error: false,

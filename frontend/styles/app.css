@@ -159,10 +159,25 @@
         #issueDetails .page-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
         #issueDetails .indices { font-size: 12px; color: var(--text); white-space: pre-wrap; word-break: break-word; }
 
+        .issues-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin: 6px 0 10px;
+        }
+        .issues-controls input[type="search"] {
+            padding: 6px 10px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--panel-2);
+            color: var(--text);
+            font-size: 12px;
+        }
+        .issues-controls input[type="search"]::placeholder { color: var(--muted); }
         .issues-filter {
             display: flex;
             gap: 6px;
-            margin: 6px 0 10px;
+            margin: 0;
             flex-wrap: wrap;
         }
         .issues-filter button {
