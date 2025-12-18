@@ -28,6 +28,7 @@ export function createViewer(container, initialViewSettings = {}) {
     let vertexIndexMap = null; // Map original vertex index -> current vertex index (or null for identity)
     let lastFaceList = null; // remember last applied component for settings refresh
     let sourceGeometry = null; // stable indexed geometry for highlighting/mapping
+    const drawBufferSize = new THREE.Vector2();
     const baseMeshColor = new THREE.Color(0xf2f4f7);
     const viewSettings = {
         edgeThreshold: 12,
@@ -450,10 +451,8 @@ export function createViewer(container, initialViewSettings = {}) {
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
         if (highlightLineMaterial) {
-            highlightLineMaterial.resolution.set(
-                renderer.domElement.width,
-                renderer.domElement.height
-            );
+            renderer.getDrawingBufferSize(drawBufferSize);
+            highlightLineMaterial.resolution.set(drawBufferSize.x, drawBufferSize.y);
         }
     }
     window.addEventListener("resize", onResize);
@@ -656,10 +655,8 @@ export function createViewer(container, initialViewSettings = {}) {
         });
 
         // IMPORTANT: LineMaterial needs renderer resolution
-        highlightLineMaterial.resolution.set(
-            renderer.domElement.width,
-            renderer.domElement.height
-        );
+        renderer.getDrawingBufferSize(drawBufferSize);
+        highlightLineMaterial.resolution.set(drawBufferSize.x, drawBufferSize.y);
 
         highlightEdges = new Line2(geom, highlightLineMaterial);
         highlightEdges.computeLineDistances();
