@@ -19,7 +19,15 @@ resetState();
 const issueButtons = [];
 function toggleGroup(sev) {
     state.collapsedGroups[sev] = !state.collapsedGroups[sev];
-    renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup);
+    renderIssuesGrouped(
+        state,
+        dom,
+        issueButtons,
+        selectIssue,
+        toggleGroup,
+        previewIssue,
+        restoreSelectionHighlight
+    );
     updateActiveButtons(state, issueButtons);
 }
 
@@ -275,10 +283,57 @@ function moveItem(delta) {
     renderSelection();
 }
 
+function highlightIssue(issue, mode, itemIndex) {
+    const { kind, items } = getIssueItems(issue);
+    const total = items.length;
+    if (mode === "all") {
+        viewer.showIssueAll(issue);
+        return;
+    }
+    if ((kind === "face" || kind === "edge") && total) {
+        const safeIndex = ((itemIndex % total) + total) % total;
+        viewer.showIssueItem(issue, safeIndex);
+        return;
+    }
+    viewer.showIssueAll(issue);
+}
+
+function previewIssue(index) {
+    if (!state.highlightEnabled) return;
+    const issue = state.issues[index];
+    if (!issue) return;
+    highlightIssue(issue, "all", 0);
+}
+
+function restoreSelectionHighlight() {
+    if (!state.highlightEnabled) {
+        viewer.clearHighlights();
+        return;
+    }
+    if (state.selectedIndex < 0) {
+        viewer.clearHighlights();
+        return;
+    }
+    const issue = state.issues[state.selectedIndex];
+    if (!issue) {
+        viewer.clearHighlights();
+        return;
+    }
+    highlightIssue(issue, state.mode, state.itemIndex);
+}
+
 refreshUI();
 loadViewSettings();
 setStatus("");
-renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup);
+renderIssuesGrouped(
+    state,
+    dom,
+    issueButtons,
+    selectIssue,
+    toggleGroup,
+    previewIssue,
+    restoreSelectionHighlight
+);
 
 dom.fileInput.addEventListener("change", async () => {
     const file = dom.fileInput.files[0];
@@ -316,7 +371,15 @@ dom.fileInput.addEventListener("change", async () => {
 
         state.summary = data.summary || null;
 
-        renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup);
+        renderIssuesGrouped(
+            state,
+            dom,
+            issueButtons,
+            selectIssue,
+            toggleGroup,
+            previewIssue,
+            restoreSelectionHighlight
+        );
         refreshUI();
 
         if (dom.autoLargestInput.checked && state.components.length) {
@@ -346,7 +409,15 @@ dom.issuesFilterButtons.forEach((btn) => {
                 clearSelection();
             }
         }
-        renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup);
+        renderIssuesGrouped(
+            state,
+            dom,
+            issueButtons,
+            selectIssue,
+            toggleGroup,
+            previewIssue,
+            restoreSelectionHighlight
+        );
         refreshUI();
     });
 });

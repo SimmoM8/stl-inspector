@@ -1,4 +1,4 @@
-function renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup) {
+function renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup, previewIssue, restoreSelectionHighlight) {
     dom.issuesEl.innerHTML = "";
     issueButtons.length = 0;
 
@@ -31,6 +31,8 @@ function renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup)
             btn.textContent = `${issue.severity.toUpperCase()}: ${issue.type}${countText}`;
             btn.title = issue.message;
             btn.addEventListener("click", () => selectIssue(idx));
+            btn.addEventListener("mouseenter", () => previewIssue(idx));
+            btn.addEventListener("mouseleave", () => restoreSelectionHighlight());
             body.appendChild(btn);
             issueButtons.push({ el: btn, index: idx });
         });
