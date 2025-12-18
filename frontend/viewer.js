@@ -19,6 +19,13 @@ export function createViewer(container, initialViewSettings = {}) {
     let highlightMesh = null;
     let highlightEdges = null;
     let highlightLineMaterial = null;
+    let highlightOpacity = 0;
+    let highlightOpacityTarget = 0;
+    let pendingHighlightClear = false;
+    let lastFrameTime = performance.now();
+    const highlightFaceOpacity = 0.85;
+    const highlightLineOpacity = 0.9;
+    const highlightFadeSeconds = 0.12;
     let sceneScale = 1;
     let desiredTarget = new THREE.Vector3(0, 0, 0);
     let desiredCameraPos = new THREE.Vector3(0, 0, 3);
@@ -347,7 +354,7 @@ export function createViewer(container, initialViewSettings = {}) {
 
     function applyGeometry(faceList, refitCamera = true) {
         if (!basePositions || !baseIndices) return;
-        clearHighlights();
+        discardHighlights();
         lastFaceList = faceList && faceList.length ? faceList.slice() : null;
         const { sourceGeom, displayGeom, faceMap, vertexMap: vMap } = buildGeometryFromFaceList(faceList);
 
@@ -372,7 +379,7 @@ export function createViewer(container, initialViewSettings = {}) {
             currentMesh.receiveShadow = true;
             pivot.add(currentMesh);
         } else {
-            clearHighlights();
+            discardHighlights();
             currentMesh.geometry.dispose();
             currentMesh.geometry = displayGeom;
             currentMesh.material.color.copy(baseMeshColor);
@@ -478,8 +485,11 @@ export function createViewer(container, initialViewSettings = {}) {
     }
     attachInputInterrupts();
 
-    function animate() {
+    function animate(now) {
         requestAnimationFrame(animate);
+        const frameTime = now ?? performance.now();
+        const dt = Math.min(0.05, Math.max(0, (frameTime - lastFrameTime) / 1000));
+        lastFrameTime = frameTime;
         renderer.toneMappingExposure = Math.max(0.2, viewSettings.exposure);
         headLight.position.copy(camera.position);
         headLight.target.position.copy(controls.target);
@@ -520,13 +530,30 @@ export function createViewer(container, initialViewSettings = {}) {
                 animatingFocus = false;
             }
         }
+        if (highlightMesh || highlightEdges || pendingHighlightClear) {
+            const t = dt > 0 ? (1 - Math.exp(-dt / highlightFadeSeconds)) : 1;
+            highlightOpacity += (highlightOpacityTarget - highlightOpacity) * t;
+            if (highlightMesh && highlightMesh.material) {
+                highlightMesh.material.opacity = highlightOpacity * highlightFaceOpacity;
+                highlightMesh.visible = highlightOpacity > 0.01;
+            }
+            if (highlightLineMaterial) {
+                highlightLineMaterial.opacity = highlightOpacity * highlightLineOpacity;
+            }
+            if (highlightEdges) {
+                highlightEdges.visible = highlightOpacity > 0.01;
+            }
+            if (pendingHighlightClear && highlightOpacity <= 0.02 && highlightOpacityTarget === 0) {
+                discardHighlights();
+            }
+        }
         controls.update();
         composer.render();
     }
     animate();
 
     // Highlighting
-    function clearHighlights() {
+    function discardHighlights() {
         if (highlightMesh) {
             if (highlightMesh.parent) {
                 highlightMesh.parent.remove(highlightMesh);
@@ -546,6 +573,22 @@ export function createViewer(container, initialViewSettings = {}) {
             highlightEdges = null;
             highlightLineMaterial = null;
         }
+        highlightOpacity = 0;
+        highlightOpacityTarget = 0;
+        pendingHighlightClear = false;
+    }
+
+    function clearHighlights() {
+        if (!highlightMesh && !highlightEdges) return;
+        highlightOpacityTarget = 0;
+        pendingHighlightClear = true;
+    }
+
+    function beginHighlighting() {
+        discardHighlights();
+        highlightOpacity = 0;
+        highlightOpacityTarget = 0;
+        pendingHighlightClear = false;
     }
 
     function mapFaceList(faceIndices) {
@@ -615,7 +658,7 @@ export function createViewer(container, initialViewSettings = {}) {
         const highlightMaterial = new THREE.MeshBasicMaterial({
             color: 0xff0000,
             transparent: true,
-            opacity: 0.85,
+            opacity: 0,
             depthTest: false,      // draw on top
             side: THREE.DoubleSide // show even if normals are flipped
         });
@@ -623,6 +666,8 @@ export function createViewer(container, initialViewSettings = {}) {
         highlightMesh = new THREE.Mesh(highlightGeometry, highlightMaterial);
         highlightMesh.renderOrder = 999; // draw after the base mesh
         currentMesh.add(highlightMesh);
+        highlightOpacityTarget = 1;
+        pendingHighlightClear = false;
     }
 
     function highlightEdgePairs(edgePairs) {
@@ -657,7 +702,7 @@ export function createViewer(container, initialViewSettings = {}) {
             color: 0xff0000,
             linewidth: getHighlightLineWidthPx(),        // pixels (this is what we want)
             transparent: true,
-            opacity: 1.0,
+            opacity: 0,
             depthTest: false      // draw on top
         });
 
@@ -670,6 +715,8 @@ export function createViewer(container, initialViewSettings = {}) {
         highlightEdges.renderOrder = 1000;
 
         currentMesh.add(highlightEdges);
+        highlightOpacityTarget = 1;
+        pendingHighlightClear = false;
     }
 
     function faceCentroid(faceIndex) {
@@ -764,7 +811,7 @@ export function createViewer(container, initialViewSettings = {}) {
 
     function focusFace(faceIndex) {
         if (!currentMesh || faceIndex == null) return;
-        clearHighlights();
+        beginHighlighting();
         highlightFaces([faceIndex]);
         const mapped = mapFaceList([faceIndex]);
         if (!mapped.length) return;
@@ -776,7 +823,7 @@ export function createViewer(container, initialViewSettings = {}) {
 
     function focusEdge(edgePair) {
         if (!currentMesh || !edgePair) return;
-        clearHighlights();
+        beginHighlighting();
         highlightEdgePairs([edgePair]);
         const mapped = mapEdgePairs([edgePair]);
         if (!mapped.length) return;
@@ -787,7 +834,7 @@ export function createViewer(container, initialViewSettings = {}) {
     }
 
     function showIssueAll(issue) {
-        clearHighlights();
+        beginHighlighting();
         if (!issue) return;
 
         if (issue.faces && issue.faces.length) {
