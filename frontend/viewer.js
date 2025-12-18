@@ -200,6 +200,15 @@ export function createViewer(container, initialViewSettings = {}) {
         sceneScale = diag > 0 ? diag : 1;
     }
 
+    function updateCameraClipping() {
+        const safeScale = Number.isFinite(sceneScale) && sceneScale > 0 ? sceneScale : 1;
+        const near = Math.max(0.01, safeScale / 1000);
+        const far = Math.max(near * 1000, safeScale * 10);
+        camera.near = near;
+        camera.far = far;
+        camera.updateProjectionMatrix();
+    }
+
     function fitHelpersAndCamera(geometry, mesh) {
         const sphere = geometry.boundingSphere;
         const r = sphere.radius;
@@ -212,9 +221,7 @@ export function createViewer(container, initialViewSettings = {}) {
         const target = new THREE.Vector3(0, mesh.position.y + r * 0.2, 0);
         controls.target.copy(target);
         camera.position.set(target.x, target.y + r * 0.5, target.z + r * 2.5);
-        camera.near = Math.max(r / 100, 0.001);
-        camera.far = r * 100;
-        camera.updateProjectionMatrix();
+        updateCameraClipping();
 
         controls.minDistance = r * 0.2;
         controls.maxDistance = r * 10;
@@ -634,6 +641,7 @@ export function createViewer(container, initialViewSettings = {}) {
         currentMesh.position.set(-center.x, -minY, -center.z);
 
         fitHelpersAndCamera(currentMesh.geometry, currentMesh);
+        updateCameraClipping();
     }
 
     function frameView() {
@@ -645,6 +653,7 @@ export function createViewer(container, initialViewSettings = {}) {
         const offset = new THREE.Vector3(0, r * 0.2, r * 2.5);
         desiredTarget.copy(center);
         desiredCameraPos.copy(center).add(offset);
+        updateCameraClipping();
         animatingFocus = true;
     }
 
