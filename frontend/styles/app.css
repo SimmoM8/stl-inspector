@@ -39,8 +39,25 @@ body {
 h3,
 h4,
 h5 {
-    margin: 0 0 6px 0;
+    margin: 0;
     letter-spacing: 0.01em;
+}
+
+/* Section headers */
+.card>h4 {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: var(--s4);
+    padding-bottom: var(--s3);
+    border-bottom: 1px solid var(--border);
+}
+
+.card>h5 {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: var(--s3);
 }
 
 .bi {
@@ -147,12 +164,12 @@ h5 {
 .summary-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    gap: var(--s3);
 }
 
 .summary-item {
-    padding: 10px;
-    border-radius: 10px;
+    padding: var(--s4);
+    border-radius: var(--r2);
     background: var(--panel-2);
     border: 1px solid var(--border);
     font-size: 12px;
@@ -299,7 +316,7 @@ h5 {
 .issues-controls {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--s3);
     margin: 6px 0 10px;
 }
 
@@ -318,7 +335,7 @@ h5 {
 
 .issues-filter {
     display: flex;
-    gap: 6px;
+    gap: var(--s3);
     margin: 0;
     flex-wrap: wrap;
 }
