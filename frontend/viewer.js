@@ -15,6 +15,7 @@ export function createViewer(container, initialViewSettings = {}) {
     let highlightMesh = null;
     let highlightEdges = null;
     let highlightLineMaterial = null;
+    let sceneScale = 1;
     let desiredTarget = new THREE.Vector3(0, 0, 0);
     let desiredCameraPos = new THREE.Vector3(0, 0, 3);
     let animatingFocus = false;
@@ -180,6 +181,25 @@ export function createViewer(container, initialViewSettings = {}) {
         return { sourceGeom, displayGeom, faceMap: fMap, vertexMap: vMap };
     }
 
+    function updateSceneScale(geometry) {
+        if (!geometry) {
+            sceneScale = 1;
+            return;
+        }
+        if (!geometry.boundingBox) {
+            geometry.computeBoundingBox();
+        }
+        const box = geometry.boundingBox;
+        if (!box) {
+            sceneScale = 1;
+            return;
+        }
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const diag = size.length();
+        sceneScale = diag > 0 ? diag : 1;
+    }
+
     function fitHelpersAndCamera(geometry, mesh) {
         const sphere = geometry.boundingSphere;
         const r = sphere.radius;
@@ -259,6 +279,7 @@ export function createViewer(container, initialViewSettings = {}) {
         currentMesh.position.y = -minY;
         rebuildEdges();
         applyMaterialSettings();
+        updateSceneScale(displayGeom);
 
         faceIndexMap = faceList && faceList.length ? faceMap : null;
         vertexIndexMap = faceList && faceList.length ? vMap : null;
@@ -705,6 +726,10 @@ export function createViewer(container, initialViewSettings = {}) {
         return { ...viewSettings };
     }
 
+    function getSceneScale() {
+        return sceneScale;
+    }
+
     function resetViewSettings() {
         setViewSettings({
             edgeThreshold: 12,
@@ -730,6 +755,7 @@ export function createViewer(container, initialViewSettings = {}) {
         focusEdge,
         setViewSettings,
         getViewSettings,
+        getSceneScale,
         resetViewSettings,
         centerView,
         frameView
