@@ -22,12 +22,6 @@ export function createViewer(container, initialViewSettings = {}) {
     let highlightMesh = null;
     let highlightEdges = null;
     let highlightLineMaterial = null;
-    let silhouetteLine = null;
-    let silhouetteLineMaterial = null;
-    let silhouetteGeometry = null;
-    let edgeAdjacency = null;
-    let faceNormals = null;
-    let faceCenters = null;
     let highlightOpacity = 0;
     let highlightOpacityTarget = 0;
     let pendingHighlightClear = false;
@@ -232,11 +226,6 @@ export function createViewer(container, initialViewSettings = {}) {
         return THREE.MathUtils.clamp(width, 1.2, 2.2);
     }
 
-    function getSilhouetteLineWidthPx() {
-        const width = 6 / Math.sqrt(getSafeScale());
-        return THREE.MathUtils.clamp(width, 4, 8);
-    }
-
     function getHighlightLineWidthPx() {
         const width = 8 / Math.sqrt(getSafeScale());
         return THREE.MathUtils.clamp(width, 6, 10);
@@ -386,158 +375,9 @@ export function createViewer(container, initialViewSettings = {}) {
         currentMesh.add(currentEdges);
     }
 
-    function clearSilhouette() {
-        if (silhouetteLine) {
-            if (silhouetteLine.parent) {
-                silhouetteLine.parent.remove(silhouetteLine);
-            }
-            silhouetteLine.geometry.dispose();
-            if (silhouetteLineMaterial) {
-                silhouetteLineMaterial.dispose();
-            }
-            silhouetteLine = null;
-            silhouetteLineMaterial = null;
-            silhouetteGeometry = null;
-        }
-    }
-
-    function computeEdgeAdjacency(geometry) {
-        if (!geometry) {
-            edgeAdjacency = null;
-            faceNormals = null;
-            faceCenters = null;
-            return;
-        }
-        const posAttr = geometry.getAttribute("position");
-        const indexAttr = geometry.getIndex();
-        if (!posAttr || !indexAttr) {
-            edgeAdjacency = null;
-            faceNormals = null;
-            faceCenters = null;
-            return;
-        }
-
-        const faceCount = Math.floor(indexAttr.count / 3);
-        faceNormals = new Array(faceCount);
-        faceCenters = new Array(faceCount);
-
-        const va = new THREE.Vector3();
-        const vb = new THREE.Vector3();
-        const vc = new THREE.Vector3();
-        const ab = new THREE.Vector3();
-        const ac = new THREE.Vector3();
-        const center = new THREE.Vector3();
-        for (let fi = 0; fi < faceCount; fi++) {
-            const i0 = indexAttr.getX(fi * 3 + 0);
-            const i1 = indexAttr.getX(fi * 3 + 1);
-            const i2 = indexAttr.getX(fi * 3 + 2);
-            va.set(posAttr.getX(i0), posAttr.getY(i0), posAttr.getZ(i0));
-            vb.set(posAttr.getX(i1), posAttr.getY(i1), posAttr.getZ(i1));
-            vc.set(posAttr.getX(i2), posAttr.getY(i2), posAttr.getZ(i2));
-
-            ab.subVectors(vb, va);
-            ac.subVectors(vc, va);
-            const normal = new THREE.Vector3().crossVectors(ab, ac).normalize();
-            faceNormals[fi] = normal;
-
-            center.copy(va).add(vb).add(vc).multiplyScalar(1 / 3);
-            faceCenters[fi] = center.clone();
-        }
-
-        const edgeMap = new Map();
-        for (let fi = 0; fi < faceCount; fi++) {
-            const i0 = indexAttr.getX(fi * 3 + 0);
-            const i1 = indexAttr.getX(fi * 3 + 1);
-            const i2 = indexAttr.getX(fi * 3 + 2);
-            const edges = [
-                [i0, i1],
-                [i1, i2],
-                [i2, i0],
-            ];
-            for (const [a, b] of edges) {
-                const v0 = Math.min(a, b);
-                const v1 = Math.max(a, b);
-                const key = `${v0}-${v1}`;
-                let entry = edgeMap.get(key);
-                if (!entry) {
-                    entry = { a: v0, b: v1, faces: [fi] };
-                    edgeMap.set(key, entry);
-                } else {
-                    entry.faces.push(fi);
-                }
-            }
-        }
-
-        edgeAdjacency = Array.from(edgeMap.values());
-    }
-
-    function rebuildSilhouette() {
-        if (!currentMesh || !edgeAdjacency || !faceNormals || !faceCenters) return;
-        if (!silhouetteGeometry) {
-            silhouetteGeometry = new LineSegmentsGeometry();
-        }
-        if (!silhouetteLineMaterial) {
-            silhouetteLineMaterial = new LineMaterial({
-                color: 0x111827,
-                linewidth: getSilhouetteLineWidthPx(),
-                transparent: true,
-                opacity: 0.9,
-                depthTest: true,
-            });
-            renderer.getDrawingBufferSize(drawBufferSize);
-            silhouetteLineMaterial.resolution.set(drawBufferSize.x, drawBufferSize.y);
-        }
-
-        const viewDir = new THREE.Vector3();
-        const cameraPos = camera.position.clone();
-        const normalMatrix = new THREE.Matrix3().getNormalMatrix(currentMesh.matrixWorld);
-
-        const faceFacing = new Array(faceNormals.length);
-        for (let fi = 0; fi < faceNormals.length; fi++) {
-            const normalWorld = faceNormals[fi].clone().applyMatrix3(normalMatrix).normalize();
-            const centerWorld = faceCenters[fi].clone().applyMatrix4(currentMesh.matrixWorld);
-            viewDir.subVectors(cameraPos, centerWorld).normalize();
-            faceFacing[fi] = normalWorld.dot(viewDir) >= 0;
-        }
-
-        const posAttr = sourceGeometry.getAttribute("position");
-        const positions = [];
-        for (const edge of edgeAdjacency) {
-            if (edge.faces.length === 1) {
-                const a = edge.a;
-                const b = edge.b;
-                positions.push(
-                    posAttr.getX(a), posAttr.getY(a), posAttr.getZ(a),
-                    posAttr.getX(b), posAttr.getY(b), posAttr.getZ(b)
-                );
-                continue;
-            }
-            if (edge.faces.length === 2) {
-                const f0 = edge.faces[0];
-                const f1 = edge.faces[1];
-                if (faceFacing[f0] !== faceFacing[f1]) {
-                    const a = edge.a;
-                    const b = edge.b;
-                    positions.push(
-                        posAttr.getX(a), posAttr.getY(a), posAttr.getZ(a),
-                        posAttr.getX(b), posAttr.getY(b), posAttr.getZ(b)
-                    );
-                }
-            }
-        }
-
-        silhouetteGeometry.setPositions(new Float32Array(positions));
-        if (!silhouetteLine) {
-            silhouetteLine = new LineSegments2(silhouetteGeometry, silhouetteLineMaterial);
-            silhouetteLine.renderOrder = 11;
-            currentMesh.add(silhouetteLine);
-        }
-    }
-
     function applyGeometry(faceList, refitCamera = true) {
         if (!basePositions || !baseIndices) return;
         discardHighlights();
-        clearSilhouette();
         lastFaceList = faceList && faceList.length ? faceList.slice() : null;
         const { sourceGeom, displayGeom, faceMap, vertexMap: vMap } = buildGeometryFromFaceList(faceList);
 
@@ -547,7 +387,6 @@ export function createViewer(container, initialViewSettings = {}) {
             sourceGeometry = null;
         }
         sourceGeometry = sourceGeom;
-        computeEdgeAdjacency(sourceGeometry);
 
         const box = displayGeom.boundingBox;
         const minY = box.min.y;
@@ -576,7 +415,6 @@ export function createViewer(container, initialViewSettings = {}) {
         gridHelper.position.y = floorY;
         ground.position.y = floorY;
         rebuildEdges();
-        rebuildSilhouette();
         applyMaterialSettings();
         updateSceneScale(displayGeom);
         updateShadowCameraBounds();
@@ -648,7 +486,7 @@ export function createViewer(container, initialViewSettings = {}) {
         fxaaPass.material.uniforms["resolution"].value.set(1 / (w * ratio), 1 / (h * ratio));
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
-        if (highlightLineMaterial || edgeLineMaterial || silhouetteLineMaterial) {
+        if (highlightLineMaterial || edgeLineMaterial) {
             renderer.getDrawingBufferSize(drawBufferSize);
         }
         if (highlightLineMaterial) {
@@ -656,9 +494,6 @@ export function createViewer(container, initialViewSettings = {}) {
         }
         if (edgeLineMaterial) {
             edgeLineMaterial.resolution.set(drawBufferSize.x, drawBufferSize.y);
-        }
-        if (silhouetteLineMaterial) {
-            silhouetteLineMaterial.resolution.set(drawBufferSize.x, drawBufferSize.y);
         }
     }
     window.addEventListener("resize", onResize);
@@ -677,10 +512,6 @@ export function createViewer(container, initialViewSettings = {}) {
         window.addEventListener("keydown", stop);
     }
     attachInputInterrupts();
-
-    controls.addEventListener("change", () => {
-        rebuildSilhouette();
-    });
 
     function animate(now) {
         requestAnimationFrame(animate);
