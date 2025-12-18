@@ -33,8 +33,21 @@ function renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup,
 
         items.forEach(({ issue, idx }) => {
             const btn = document.createElement("button");
-            const countText = issue.count != null ? ` (${issue.count})` : "";
-            btn.textContent = `${issue.severity.toUpperCase()}: ${issue.type}${countText}`;
+            btn.className = "issue-btn";
+            const sevDot = document.createElement("span");
+            const sevClass = (issue.severity || "info").toLowerCase();
+            sevDot.className = `sev-dot sev-${sevClass}`;
+            const title = document.createElement("span");
+            title.className = "issue-title";
+            title.textContent = `${issue.severity.toUpperCase()}: ${issue.type}`;
+            btn.appendChild(sevDot);
+            btn.appendChild(title);
+            if (issue.count != null) {
+                const badge = document.createElement("span");
+                badge.className = "badge";
+                badge.textContent = `(${issue.count})`;
+                btn.appendChild(badge);
+            }
             btn.title = issue.message;
             btn.addEventListener("click", () => selectIssue(idx));
             btn.addEventListener("mouseenter", () => previewIssue(idx));

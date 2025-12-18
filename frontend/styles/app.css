@@ -128,7 +128,7 @@
         .group-items { padding-top: 6px; }
         .hidden { display: none; }
 
-        #issues button, #componentsList button {
+        #issues .issue-btn, #componentsList button {
             display: block;
             width: 100%;
             text-align: left;
@@ -141,11 +141,41 @@
             border-radius: 10px;
             transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
         }
-        #issues button:hover, #componentsList button:hover { background: #152038; transform: translateY(-1px); }
-        #issues button.active, #componentsList button.active {
+        #issues .issue-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        #issues .issue-btn:hover, #componentsList button:hover { background: #152038; transform: translateY(-1px); }
+        #issues .issue-btn.active {
+            border-color: var(--accent);
+            background: #0f1a32;
+            box-shadow: inset 3px 0 0 var(--accent);
+        }
+        #componentsList button.active {
             border-color: var(--accent);
             background: var(--accent-soft);
             box-shadow: 0 0 0 2px rgba(59,130,246,0.25);
+        }
+        .sev-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex: 0 0 auto;
+        }
+        .sev-error { background: #ef4444; }
+        .sev-warning { background: #f59e0b; }
+        .sev-info { background: #38bdf8; }
+        .issue-title { flex: 1; }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 6px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.6);
+            color: var(--muted);
+            font-size: 11px;
         }
 
         #issueDetails {
