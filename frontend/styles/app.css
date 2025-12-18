@@ -233,6 +233,12 @@ h5 {
     }
 }
 
+@media (min-width: 901px) {
+    #drawerToggle {
+        display: none !important;
+    }
+}
+
 .viewer-wrap {
     position: relative;
     background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.05), transparent 40%),

@@ -195,17 +195,25 @@ function isMobile() {
     return mobileQuery.matches;
 }
 
+function syncDrawerToggleState() {
+    if (dom.drawerToggleBtn) {
+        dom.drawerToggleBtn.disabled = !isMobile();
+    }
+}
+
 function setDrawerOpen(open) {
     if (!dom.contextPanel || !dom.drawerBackdrop) return;
     if (!isMobile()) {
         dom.contextPanel.classList.remove("is-open");
         dom.drawerBackdrop.classList.remove("is-visible");
         document.body.classList.remove("no-scroll");
+        syncDrawerToggleState();
         return;
     }
     dom.contextPanel.classList.toggle("is-open", open);
     dom.drawerBackdrop.classList.toggle("is-visible", open);
     document.body.classList.toggle("no-scroll", open);
+    syncDrawerToggleState();
 }
 
 function loadViewSettings() {
@@ -557,6 +565,7 @@ if (dom.drawerToggleBtn) {
         const isOpen = dom.contextPanel && dom.contextPanel.classList.contains("is-open");
         setDrawerOpen(!isOpen);
     });
+    syncDrawerToggleState();
 }
 
 if (dom.drawerBackdrop) {
@@ -573,6 +582,7 @@ mobileQuery.addEventListener("change", (event) => {
     if (!event.matches) {
         setDrawerOpen(false);
     }
+    syncDrawerToggleState();
 });
 
 dom.modeToggleBtn.addEventListener("click", () => {
