@@ -79,7 +79,7 @@ h5 {
 
 .app {
     display: grid;
-    grid-template-columns: 64px 320px 1fr;
+    grid-template-columns: 64px minmax(260px, 320px) 1fr;
     width: 100%;
     height: 100%;
 }
@@ -120,6 +120,25 @@ h5 {
     border-color: var(--accent);
 }
 
+.mobile-only {
+    display: none;
+}
+
+.drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(7, 12, 24, 0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 4;
+}
+
+.drawer-backdrop.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 .context {
     background: var(--panel);
     border-right: 1px solid var(--border);
@@ -128,6 +147,36 @@ h5 {
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+@media (max-width: 900px) {
+    .app {
+        grid-template-columns: 64px 1fr;
+    }
+
+    .mobile-only {
+        display: grid;
+    }
+
+    .rail {
+        position: relative;
+        z-index: 6;
+    }
+
+    .context {
+        position: fixed;
+        top: 0;
+        left: 64px;
+        bottom: 0;
+        width: min(320px, calc(100vw - 64px));
+        transform: translateX(-100%);
+        transition: transform 0.2s ease;
+        z-index: 5;
+    }
+
+    .context.is-open {
+        transform: translateX(0);
+    }
 }
 
 .viewer-wrap {
@@ -436,14 +485,17 @@ h5 {
     font-size: 13px;
     color: var(--text);
 }
+
 .control-row:last-child {
     border-bottom: 0;
     padding-bottom: 0;
 }
+
 .control-row input[type="range"] {
     width: 140px;
     max-width: 100%;
 }
+
 .control-row button {
     grid-column: 1 / -1;
     width: 100%;

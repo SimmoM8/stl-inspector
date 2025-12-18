@@ -189,6 +189,23 @@ function setActivePanel(panelName) {
     });
 }
 
+const mobileQuery = window.matchMedia("(max-width: 900px)");
+
+function isMobile() {
+    return mobileQuery.matches;
+}
+
+function setDrawerOpen(open) {
+    if (!dom.contextPanel || !dom.drawerBackdrop) return;
+    if (!isMobile()) {
+        dom.contextPanel.classList.remove("is-open");
+        dom.drawerBackdrop.classList.remove("is-visible");
+        return;
+    }
+    dom.contextPanel.classList.toggle("is-open", open);
+    dom.drawerBackdrop.classList.toggle("is-visible", open);
+}
+
 function loadViewSettings() {
     const saved = localStorage.getItem("stl-view-settings");
     if (saved) {
@@ -527,7 +544,33 @@ dom.autoLargestInput.addEventListener("change", () => {
 });
 
 dom.railButtons.forEach((btn) => {
-    btn.addEventListener("click", () => setActivePanel(btn.dataset.panel));
+    btn.addEventListener("click", () => {
+        setActivePanel(btn.dataset.panel);
+        if (isMobile()) setDrawerOpen(true);
+    });
+});
+
+if (dom.drawerToggleBtn) {
+    dom.drawerToggleBtn.addEventListener("click", () => {
+        const isOpen = dom.contextPanel && dom.contextPanel.classList.contains("is-open");
+        setDrawerOpen(!isOpen);
+    });
+}
+
+if (dom.drawerBackdrop) {
+    dom.drawerBackdrop.addEventListener("click", () => setDrawerOpen(false));
+}
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && isMobile()) {
+        setDrawerOpen(false);
+    }
+});
+
+mobileQuery.addEventListener("change", (event) => {
+    if (!event.matches) {
+        setDrawerOpen(false);
+    }
 });
 
 dom.modeToggleBtn.addEventListener("click", () => {

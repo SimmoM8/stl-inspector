@@ -18,6 +18,7 @@
 <body>
     <div class="app">
         <div class="rail">
+            <button id="drawerToggle" class="mobile-only" title="Toggle panel" aria-label="Toggle panel"><i class="bi bi-list"></i></button>
             <button class="active" data-panel="issues" title="Issues" aria-label="Issues"><i class="bi bi-exclamation-triangle"></i></button>
             <button data-panel="components" title="Components" aria-label="Components"><i class="bi bi-boxes"></i></button>
             <button data-panel="tools" title="Tools" aria-label="Tools"><i class="bi bi-tools"></i></button>
@@ -105,6 +106,8 @@
             <button id="clearBtn">Clear highlight</button>
             <div id="statusBubble"></div>
         </div>
+
+        <div id="drawerBackdrop" class="drawer-backdrop"></div>
 
         <div class="viewer-wrap">
             <div id="viewer"></div>
