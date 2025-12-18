@@ -42,6 +42,7 @@ const dom = {
     get cameraToolbar() { return byId("cameraToolbar"); },
     get inspectToolbar() { return byId("inspectToolbar"); },
     get renderToolbar() { return byId("renderToolbar"); },
+    get miniStatus() { return byId("miniStatus"); },
     get emptyState() { return byId("emptyState"); },
     get summaryWatertight() { return byId("summaryWatertight"); },
     get summaryComponents() { return byId("summaryComponents"); },

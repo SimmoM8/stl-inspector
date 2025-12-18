@@ -40,6 +40,7 @@ function refreshUI() {
         btn.classList.toggle("active", btn.dataset.filter === state.issueFilter);
     });
     if (dom.emptyState) dom.emptyState.classList.toggle("hidden", !!state.summary);
+    updateMiniStatus();
 }
 
 function getIssueItems(issue) {
@@ -48,6 +49,33 @@ function getIssueItems(issue) {
     if (faces.length) return { kind: "face", items: faces };
     if (edges.length) return { kind: "edge", items: edges };
     return { kind: "none", items: [] };
+}
+
+function updateMiniStatus() {
+    if (!dom.miniStatus) return;
+    if (!state.summary) {
+        dom.miniStatus.classList.add("hidden");
+        dom.miniStatus.textContent = "";
+        return;
+    }
+    const highlightText = state.highlightEnabled ? "Highlights ON" : "Highlights OFF";
+    const modeText = state.mode === "all" ? "Mode ALL" : "Mode STEP";
+    let itemText = "Item –";
+    if (state.selectedIndex >= 0) {
+        const issue = state.issues[state.selectedIndex];
+        if (issue) {
+            const { items } = getIssueItems(issue);
+            const total = items.length;
+            if (state.mode === "all") {
+                itemText = total ? `Item All (${total})` : "Item All";
+            } else if (total) {
+                const safeIndex = ((state.itemIndex % total) + total) % total;
+                itemText = `Item ${safeIndex + 1} / ${total}`;
+            }
+        }
+    }
+    dom.miniStatus.textContent = `${highlightText} • ${modeText} • ${itemText}`;
+    dom.miniStatus.classList.toggle("hidden", false);
 }
 
 function issueMatchesFilters(issue) {
