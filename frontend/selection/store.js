@@ -12,11 +12,17 @@ function createSelectionStore() {
     const findComponent = (componentIndex) => components.find((c) => c.componentIndex === componentIndex) || null;
 
     function emit() {
-        listeners.forEach((fn) => fn(selection));
+        listeners.forEach((fn) => {
+            try {
+                fn(selection);
+            } catch (e) {
+                console.warn("selectionStore listener error", e);
+            }
+        });
     }
 
     function setSelection(next) {
-        selection = next
+        const normalized = next
             ? {
                 type: next.type ?? null,
                 id: next.id ?? null,
@@ -24,7 +30,19 @@ function createSelectionStore() {
                 meta: next.meta ?? null,
             }
             : { type: null, id: null, bounds: null, meta: null };
+
+        selection = normalized;
+
+        // Keep existing component selection API compatible
+        if (selection.type === "component") {
+            const comp = findComponent(selection.id);
+            selectedComponent = comp ? comp.componentIndex : null;
+        } else {
+            selectedComponent = null;
+        }
+
         emit();
+        return selection;
     }
 
     function getSelection() {
@@ -32,8 +50,16 @@ function createSelectionStore() {
     }
 
     function subscribe(listener) {
-        if (typeof listener !== "function") return () => {};
+        if (typeof listener !== "function") return () => { };
         listeners.add(listener);
+
+        // Immediately notify with current selection
+        try {
+            listener(selection);
+        } catch (e) {
+            console.warn("selectionStore listener error", e);
+        }
+
         return () => listeners.delete(listener);
     }
 
