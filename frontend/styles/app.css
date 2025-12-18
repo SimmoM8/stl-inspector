@@ -197,6 +197,40 @@ h5 {
     .context.is-open {
         transform: translateX(0);
     }
+
+    #cameraToolbar {
+        right: 12px;
+        top: 72px;
+    }
+
+    #inspectToolbar {
+        right: 12px;
+        top: 208px;
+    }
+
+    #renderToolbar {
+        right: 12px;
+        bottom: 72px;
+    }
+
+    .tool-column,
+    .render-panel {
+        padding: var(--s2);
+    }
+
+    .tool-column {
+        gap: var(--s2);
+    }
+
+    .icon-btn {
+        width: 32px;
+        height: 32px;
+    }
+
+    .render-panel {
+        grid-template-columns: repeat(3, 32px);
+        gap: var(--s2);
+    }
 }
 
 .viewer-wrap {
