@@ -28,6 +28,7 @@ function refreshUI() {
     renderComponentsList(state, dom, applyComponentSelection);
     updateSummary(dom, state.summary);
     updateActiveButtons(state, issueButtons);
+    if (dom.emptyState) dom.emptyState.classList.toggle("hidden", !!state.summary);
 }
 
 function getIssueItems(issue) {
@@ -271,10 +272,8 @@ function moveItem(delta) {
     renderSelection();
 }
 
-renderSelection();
-updateToolbarVisibility(state, dom);
+refreshUI();
 loadViewSettings();
-updateSummary(dom, state.summary);
 setStatus("");
 renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup);
 
