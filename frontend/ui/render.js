@@ -73,6 +73,7 @@ function renderDetails(dom, issue, meta) {
         dom.issueTitle.textContent = "No issue selected";
         dom.issueMeta.textContent = "";
         dom.issuePageLabel.textContent = "";
+        dom.issueHint.textContent = meta?.hint || "";
         dom.issueIndices.textContent = "";
         dom.prevBtn.disabled = true;
         dom.nextBtn.disabled = true;
@@ -88,6 +89,7 @@ function renderDetails(dom, issue, meta) {
     dom.issueMeta.textContent = metaParts.join(" • ");
 
     dom.issuePageLabel.textContent = meta.pageLabel || "";
+    dom.issueHint.textContent = meta?.hint || "";
     dom.issueIndices.textContent = meta.description;
     dom.prevBtn.disabled = meta.disableNav;
     dom.nextBtn.disabled = meta.disableNav;

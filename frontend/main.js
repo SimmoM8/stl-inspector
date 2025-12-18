@@ -222,7 +222,12 @@ function renderSelection() {
 
     if (!issue) {
         if (state.highlightEnabled) viewer.clearHighlights();
-        renderDetails(dom, null, { description: "", pageLabel: "–", disableNav: true });
+        renderDetails(dom, null, {
+            description: "",
+            pageLabel: "–",
+            hint: "Upload an STL to begin. Hover issues to preview, use ←/→ to step.",
+            disableNav: true,
+        });
         return;
     }
 
@@ -258,9 +263,14 @@ function renderSelection() {
         }
     }
 
+    const hint = state.mode === "all"
+        ? "Showing all items. Press A to switch to step mode."
+        : "Step through items with ←/→ (or J/K). Press A to show all.";
+
     renderDetails(dom, issue, {
         pageLabel,
         description,
+        hint,
         disableNav,
     });
 

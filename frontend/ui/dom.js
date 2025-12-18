@@ -22,6 +22,7 @@ const dom = {
     get issueTitle() { return byId("issueTitle"); },
     get issueMeta() { return byId("issueMeta"); },
     get issuePageLabel() { return byId("issuePageLabel"); },
+    get issueHint() { return document.querySelector("#issueHint"); },
     get issueIndices() { return byId("issueIndices"); },
     get prevBtn() { return byId("prevBtn"); },
     get nextBtn() { return byId("nextBtn"); },
