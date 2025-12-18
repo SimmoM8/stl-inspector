@@ -339,6 +339,13 @@ dom.fileInput.addEventListener("change", async () => {
 dom.issuesFilterButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
         state.issueFilter = btn.dataset.filter || "all";
+        if (state.selectedIndex >= 0 && state.issueFilter !== "all") {
+            const selectedIssue = state.issues[state.selectedIndex];
+            const sev = selectedIssue ? (selectedIssue.severity || "info").toLowerCase() : "info";
+            if (sev !== state.issueFilter) {
+                clearSelection();
+            }
+        }
         renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup);
         refreshUI();
     });
