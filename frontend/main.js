@@ -200,10 +200,12 @@ function setDrawerOpen(open) {
     if (!isMobile()) {
         dom.contextPanel.classList.remove("is-open");
         dom.drawerBackdrop.classList.remove("is-visible");
+        document.body.classList.remove("no-scroll");
         return;
     }
     dom.contextPanel.classList.toggle("is-open", open);
     dom.drawerBackdrop.classList.toggle("is-visible", open);
+    document.body.classList.toggle("no-scroll", open);
 }
 
 function loadViewSettings() {
