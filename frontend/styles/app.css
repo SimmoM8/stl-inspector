@@ -3,6 +3,10 @@
     --bg-2: #0c1222;
     --panel: #111a2f;
     --panel-2: #0b1222;
+    --surface-1: #0f172a;
+    --surface-2: #0b1222;
+    --glass: rgba(15, 23, 42, 0.92);
+    --stroke: #1f2b45;
     --border: #1f2b45;
     --muted: #97a3b8;
     --text: #e9edf5;
@@ -21,6 +25,11 @@
     --r2: 10px;
     --r3: 12px;
     --shadow1: 0 8px 24px rgba(0, 0, 0, 0.2);
+    --fs-xs: 11px;
+    --fs-sm: 12px;
+    --fs-md: 13px;
+    --lh-tight: 1.25;
+    --lh-normal: 1.45;
 }
 
 * {
@@ -208,9 +217,9 @@ h5 {
 }
 
 .card {
-    border: 1px solid var(--border);
+    border: 1px solid var(--stroke);
     border-radius: var(--r3);
-    background: var(--card);
+    background: var(--surface-1);
     padding: var(--s5);
 }
 
@@ -225,7 +234,8 @@ h5 {
     border-radius: var(--r2);
     background: var(--panel-2);
     border: 1px solid var(--border);
-    font-size: 12px;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-normal);
 }
 
 .summary-item .label {
@@ -267,8 +277,8 @@ h5 {
     text-align: left;
     margin: 6px 0;
     padding: var(--s4);
-    border: 1px solid var(--border);
-    background: var(--panel-2);
+    border: 1px solid var(--stroke);
+    background: var(--surface-2);
     color: var(--text);
     cursor: pointer;
     border-radius: var(--r2);
@@ -330,7 +340,8 @@ h5 {
     border: 1px solid var(--border);
     background: rgba(15, 23, 42, 0.6);
     color: var(--muted);
-    font-size: 11px;
+    font-size: var(--fs-xs);
+    line-height: var(--lh-tight);
 }
 
 #issueDetails {
@@ -342,25 +353,29 @@ h5 {
 }
 
 #issueDetails .meta {
-    font-size: 12px;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-normal);
     color: var(--muted);
     margin-bottom: 6px;
 }
 
 #issueDetails .page-label {
-    font-size: 12px;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-normal);
     color: var(--muted);
     margin-bottom: 6px;
 }
 
 #issueDetails .hint {
-    font-size: 11px;
+    font-size: var(--fs-xs);
+    line-height: var(--lh-normal);
     color: #7f8ba3;
     margin-bottom: 6px;
 }
 
 #issueDetails .indices {
-    font-size: 12px;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-normal);
     color: var(--text);
     white-space: pre-wrap;
     word-break: break-word;
@@ -376,8 +391,8 @@ h5 {
 .issues-controls input[type="search"] {
     padding: 6px 10px;
     border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--panel-2);
+    border: 1px solid var(--stroke);
+    background: var(--surface-2);
     color: var(--text);
     font-size: 12px;
 }
@@ -506,8 +521,8 @@ h5 {
     padding: 8px 12px;
     cursor: pointer;
     border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--panel-2);
+    border: 1px solid var(--stroke);
+    background: var(--surface-2);
     color: var(--text);
 }
 
@@ -515,8 +530,8 @@ input[type="file"] {
     width: 100%;
     padding: 8px;
     border-radius: 10px;
-    border: 1px dashed var(--border);
-    background: var(--panel-2);
+    border: 1px dashed var(--stroke);
+    background: var(--surface-2);
     color: var(--text);
 }
 
@@ -527,8 +542,8 @@ input[type="file"] {
 .tool-column,
 .render-panel {
     position: absolute;
-    background: rgba(15, 23, 42, 0.92);
-    border: 1px solid var(--border);
+    background: var(--glass);
+    border: 1px solid var(--stroke);
     border-radius: var(--r2);
     box-shadow: var(--shadow1);
     padding: 6px;
@@ -545,8 +560,8 @@ input[type="file"] {
     width: 34px;
     height: 34px;
     border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--panel-2);
+    border: 1px solid var(--stroke);
+    background: var(--surface-2);
     color: var(--text);
     cursor: pointer;
     display: grid;
@@ -592,8 +607,8 @@ input[type="file"] {
     gap: 6px;
     padding: 4px 6px;
     border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--panel-2);
+    border: 1px solid var(--stroke);
+    background: var(--surface-2);
     color: var(--text);
     font-size: 12px;
     cursor: pointer;
@@ -612,8 +627,8 @@ input[type="file"] {
     top: 12px;
     left: 12px;
     padding: 8px 12px;
-    background: rgba(15, 23, 42, 0.92);
-    border: 1px solid var(--border);
+    background: var(--glass);
+    border: 1px solid var(--stroke);
     border-radius: var(--r2);
     box-shadow: var(--shadow1);
 }
@@ -627,7 +642,8 @@ input[type="file"] {
     border: 1px solid rgba(148, 163, 184, 0.25);
     background: rgba(15, 23, 42, 0.75);
     color: var(--text);
-    font-size: 11px;
+    font-size: var(--fs-xs);
+    line-height: var(--lh-tight);
     letter-spacing: 0.01em;
     backdrop-filter: blur(6px);
     pointer-events: none;
