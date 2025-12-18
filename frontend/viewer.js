@@ -86,10 +86,10 @@ export function createViewer(container, initialViewSettings = {}) {
     composer.addPass(fxaaPass);
 
     // CAD-style lighting rig
-    const hemi = new THREE.HemisphereLight(0xdfe8ff, 0x2f3540, 1.0);
+    const hemi = new THREE.HemisphereLight(0xdfe8ff, 0x2f3540, 1.15);
     scene.add(hemi);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.3);
     keyLight.position.set(4, 6, 4);
     scene.add(keyLight);
 
