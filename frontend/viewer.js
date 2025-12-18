@@ -302,7 +302,9 @@ export function createViewer(container, initialViewSettings = {}) {
 
         const target = new THREE.Vector3(0, mesh.position.y + r * 0.2, 0);
         controls.target.copy(target);
-        camera.position.set(target.x, target.y + r * 0.5, target.z + r * 2.5);
+        const fov = THREE.MathUtils.degToRad(camera.fov);
+        const distance = (r / Math.sin(fov / 2)) * 1.15;
+        camera.position.set(target.x, target.y + r * 0.5, target.z + distance);
         updateCameraClipping();
 
         controls.minDistance = r * 0.2;
@@ -740,8 +742,10 @@ export function createViewer(container, initialViewSettings = {}) {
         const sphere = currentMesh.geometry.boundingSphere;
         const r = getMeshRadius();
         const center = sphere.center.clone().add(currentMesh.position);
+        const fov = THREE.MathUtils.degToRad(camera.fov);
+        const distance = (r / Math.sin(fov / 2)) * 1.15;
 
-        const offset = new THREE.Vector3(0, r * 0.2, r * 2.5);
+        const offset = new THREE.Vector3(0, r * 0.2, distance);
         desiredTarget.copy(center);
         desiredCameraPos.copy(center).add(offset);
         updateCameraClipping();
