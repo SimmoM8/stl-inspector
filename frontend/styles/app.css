@@ -128,9 +128,10 @@ h5 {
 }
 
 .rail button.active {
-    background: var(--accent);
-    color: #0b1226;
-    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--text);
+    border-color: var(--border);
+    box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .mobile-only {
@@ -159,7 +160,7 @@ h5 {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
 }
 
 @media (max-width: 900px) {
@@ -220,7 +221,7 @@ h5 {
     border: 1px solid var(--stroke);
     border-radius: var(--r3);
     background: var(--surface-1);
-    padding: var(--s5);
+    padding: var(--s4);
 }
 
 .summary-grid {
@@ -679,7 +680,7 @@ input[type="file"] {
 }
 
 #statusBubble {
-    margin-top: auto;
+    margin-top: 8px;
     padding: 8px 10px;
     border-radius: 10px;
     border: 1px solid var(--border);
@@ -687,4 +688,7 @@ input[type="file"] {
     color: var(--text);
     font-size: 12px;
     min-height: 32px;
+}
+#clearBtn {
+    margin-top: auto;
 }
