@@ -417,6 +417,8 @@ export function createViewer(container, initialViewSettings = {}) {
         sourceGeometry = sourceGeom;
 
         const box = displayGeom.boundingBox;
+        const center = new THREE.Vector3();
+        box.getCenter(center);
         const minY = box.min.y;
 
         if (!currentMesh) {
@@ -438,7 +440,7 @@ export function createViewer(container, initialViewSettings = {}) {
             currentMesh.receiveShadow = true;
         }
 
-        currentMesh.position.y = -minY;
+        currentMesh.position.set(-center.x, -minY, -center.z);
         const floorY = currentMesh.position.y;
         gridHelper.position.y = floorY;
         ground.position.y = floorY;
