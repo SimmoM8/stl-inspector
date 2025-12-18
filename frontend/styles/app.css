@@ -577,11 +577,10 @@ input[type="file"] {
     bottom: 16px;
 }
 
-.tool-column button,
-.render-panel button {
+.icon-btn {
     width: 34px;
     height: 34px;
-    border-radius: 8px;
+    border-radius: var(--r2);
     border: 1px solid var(--stroke);
     background: var(--surface-2);
     color: var(--text);
@@ -589,15 +588,14 @@ input[type="file"] {
     display: grid;
     place-items: center;
     font-size: 14px;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
 }
 
-.tool-column button:hover,
-.render-panel button:hover {
+.icon-btn:hover {
     background: #152038;
 }
 
-.tool-column button.active,
-.render-panel button.active {
+.icon-btn.active {
     border-color: var(--accent);
     background: var(--accent-soft);
 }
