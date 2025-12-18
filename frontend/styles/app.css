@@ -426,6 +426,35 @@ h5 {
     color: var(--muted);
 }
 
+.control-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text);
+}
+.control-row:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+.control-row input[type="range"] {
+    width: 140px;
+    max-width: 100%;
+}
+.control-row button {
+    grid-column: 1 / -1;
+    width: 100%;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+}
+
 input[type="file"] {
     width: 100%;
     padding: 8px;
