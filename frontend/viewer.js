@@ -228,8 +228,8 @@ export function createViewer(container, initialViewSettings = {}) {
     }
 
     function getEdgeLineWidthPx() {
-        const width = 3 / Math.sqrt(getSafeScale());
-        return THREE.MathUtils.clamp(width, 2, 4);
+        const width = 1.8 / Math.sqrt(getSafeScale());
+        return THREE.MathUtils.clamp(width, 1.2, 2.2);
     }
 
     function getSilhouetteLineWidthPx() {
