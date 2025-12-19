@@ -15,6 +15,7 @@ import { LineMaterial } from "https://unpkg.com/three@0.160.0/examples/jsm/lines
 import { LineGeometry } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineGeometry.js";
 import { LineSegments2 } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineSegmentsGeometry.js";
+import { getComponentColor } from "./components/colors.js";
 
 export function createViewer(container, initialViewSettings = {}) {
     let currentMesh = null;
@@ -41,6 +42,8 @@ export function createViewer(container, initialViewSettings = {}) {
     let vertexIndexMap = null; // Map original vertex index -> current vertex index (or null for identity)
     let lastFaceList = null; // remember last applied component for settings refresh
     let sourceGeometry = null; // stable indexed geometry for highlighting/mapping
+    let componentOverlays = [];
+    let overlayMesh = null;
     const drawBufferSize = new THREE.Vector2();
     const tempBox = new THREE.Box3();
     const tempSphere = new THREE.Sphere();
@@ -360,6 +363,64 @@ export function createViewer(container, initialViewSettings = {}) {
         ground.position.y = 0;
     }
 
+    function disposeOverlay() {
+        if (overlayMesh && overlayMesh.parent) {
+            overlayMesh.parent.remove(overlayMesh);
+        }
+        if (overlayMesh) {
+            overlayMesh.geometry.dispose();
+            overlayMesh.material.dispose();
+        }
+        overlayMesh = null;
+    }
+
+    function rebuildComponentOverlay(displayGeom, faceList) {
+        // Only show overlays when full mesh is displayed (no face subset)
+        disposeOverlay();
+        if (!currentMesh || !displayGeom || faceList) return;
+        if (!Array.isArray(componentOverlays) || !componentOverlays.length) return;
+        const indexAttr = displayGeom.getIndex();
+        const posAttr = displayGeom.getAttribute("position");
+        if (!indexAttr || !posAttr) return;
+        const faceCount = indexAttr.count / 3;
+        if (!Number.isFinite(faceCount) || faceCount <= 0) return;
+
+        const colorArray = new Float32Array(posAttr.count * 3);
+        for (const comp of componentOverlays) {
+            const colorHex = getComponentColor(comp.componentIndex);
+            const c = new THREE.Color(colorHex);
+            for (const faceIndex of comp.faceIndices) {
+                if (faceIndex < 0 || faceIndex >= faceCount) continue;
+                const i0 = indexAttr.getX(faceIndex * 3 + 0);
+                const i1 = indexAttr.getX(faceIndex * 3 + 1);
+                const i2 = indexAttr.getX(faceIndex * 3 + 2);
+                const assign = (vi) => {
+                    colorArray[vi * 3 + 0] = c.r;
+                    colorArray[vi * 3 + 1] = c.g;
+                    colorArray[vi * 3 + 2] = c.b;
+                };
+                assign(i0);
+                assign(i1);
+                assign(i2);
+            }
+        }
+
+        const overlayGeom = displayGeom.clone();
+        overlayGeom.setAttribute("color", new THREE.BufferAttribute(colorArray, 3));
+
+        const overlayMat = new THREE.MeshBasicMaterial({
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.28,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+        });
+
+        overlayMesh = new THREE.Mesh(overlayGeom, overlayMat);
+        overlayMesh.renderOrder = 5;
+        currentMesh.add(overlayMesh);
+    }
+
     function fitHelpersAndCamera(geometry) {
         updateHelperScales(geometry);
         const bounds = getWorldBounds(geometry);
@@ -448,6 +509,7 @@ export function createViewer(container, initialViewSettings = {}) {
         applyMaterialSettings();
         updateSceneScale(displayGeom);
         updateShadowCameraBounds();
+        rebuildComponentOverlay(displayGeom, faceList);
 
         faceIndexMap = faceList && faceList.length ? faceMap : null;
         vertexIndexMap = faceList && faceList.length ? vMap : null;
@@ -474,6 +536,8 @@ export function createViewer(container, initialViewSettings = {}) {
 
     function setMeshFromApi(meshData) {
         const { vertices, faces } = meshData;
+        disposeOverlay();
+        componentOverlays = [];
 
         // positions: flat float array length = vertices.length * 3
         basePositions = new Float32Array(vertices.length * 3);
@@ -495,10 +559,21 @@ export function createViewer(container, initialViewSettings = {}) {
         setIdentityMaps();
     }
 
+    function setComponentOverlays(list) {
+        componentOverlays = Array.isArray(list) ? list : [];
+        if (currentMesh && currentMesh.geometry) {
+            rebuildComponentOverlay(currentMesh.geometry, lastFaceList);
+        }
+    }
+
     function showComponent(faceIndices, options = {}) {
         const { refitCamera = true } = options;
         if (!basePositions || !baseIndices) return;
         applyGeometry(faceIndices, refitCamera);
+        // Hide overlays when isolating a component subset
+        if (faceIndices && faceIndices.length) {
+            disposeOverlay();
+        }
     }
 
     function showAllComponents(options = {}) {
@@ -986,6 +1061,7 @@ export function createViewer(container, initialViewSettings = {}) {
         frameBounds,
         frameView,
         getCurrentBounds,
-        getMeshOffset
+        getMeshOffset,
+        setComponentOverlays
     };
 }

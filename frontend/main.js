@@ -509,6 +509,7 @@ dom.fileInput.addEventListener("change", async () => {
         state.components = computeComponents(data.mesh);
         selectionStore.setMesh(data.mesh);
         selectionStore.setComponents(state.components);
+        viewer.setComponentOverlays(state.components);
         selectionStore.setSelection(null);
 
         state.summary = data.summary || null;

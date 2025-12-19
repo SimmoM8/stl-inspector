@@ -1,3 +1,5 @@
+import { getComponentColor } from "../components/colors.js";
+
 function renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup, previewIssue, restoreSelectionHighlight) {
     dom.issuesEl.innerHTML = "";
     issueButtons.length = 0;
@@ -72,7 +74,15 @@ function renderComponentsList(state, dom, selection, applyComponentSelection) {
         const btn = document.createElement("button");
         const facesText = `${comp.counts.numFaces} faces`;
         const vertsText = `${comp.counts.numVertices} verts`;
-        btn.textContent = `Component ${comp.componentIndex} (${facesText}, ${vertsText})`;
+        const chip = document.createElement("span");
+        chip.className = "component-chip";
+        chip.style.backgroundColor = getComponentColor(comp.componentIndex);
+
+        const label = document.createElement("span");
+        label.textContent = `Component ${comp.componentIndex} (${facesText}, ${vertsText})`;
+
+        btn.appendChild(chip);
+        btn.appendChild(label);
         const isSelected = selection?.type === "component" && selection.id === comp.componentIndex;
         btn.classList.toggle("active", isSelected);
         btn.addEventListener("click", () => {
