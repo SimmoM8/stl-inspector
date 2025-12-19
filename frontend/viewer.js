@@ -44,6 +44,9 @@ export function createViewer(container, initialViewSettings = {}) {
     let sourceGeometry = null; // stable indexed geometry for highlighting/mapping
     let componentOverlays = [];
     let overlayMesh = null;
+    let ghostMesh = null;
+    let selectionOutline = null;
+    let selectionOutlineMaterial = null;
     const drawBufferSize = new THREE.Vector2();
     const tempBox = new THREE.Box3();
     const tempSphere = new THREE.Sphere();
@@ -374,6 +377,31 @@ export function createViewer(container, initialViewSettings = {}) {
         overlayMesh = null;
     }
 
+    function disposeGhostMesh() {
+        if (ghostMesh && ghostMesh.parent) {
+            ghostMesh.parent.remove(ghostMesh);
+        }
+        if (ghostMesh) {
+            ghostMesh.geometry.dispose();
+            ghostMesh.material.dispose();
+        }
+        ghostMesh = null;
+    }
+
+    function disposeSelectionOutline() {
+        if (selectionOutline && selectionOutline.parent) {
+            selectionOutline.parent.remove(selectionOutline);
+        }
+        if (selectionOutline) {
+            selectionOutline.geometry.dispose();
+        }
+        if (selectionOutlineMaterial) {
+            selectionOutlineMaterial.dispose();
+        }
+        selectionOutline = null;
+        selectionOutlineMaterial = null;
+    }
+
     function rebuildComponentOverlay(displayGeom, faceList) {
         // Only show overlays when full mesh is displayed (no face subset)
         disposeOverlay();
@@ -386,6 +414,7 @@ export function createViewer(container, initialViewSettings = {}) {
         if (!Number.isFinite(faceCount) || faceCount <= 0) return;
 
         const colorArray = new Float32Array(posAttr.count * 3);
+        colorArray.fill(1); // default white so unassigned verts stay bright
         for (const comp of componentOverlays) {
             const colorHex = getComponentColor(comp.componentIndex);
             const c = new THREE.Color(colorHex);
@@ -413,12 +442,97 @@ export function createViewer(container, initialViewSettings = {}) {
             transparent: true,
             opacity: 0.28,
             depthWrite: false,
-            side: THREE.DoubleSide,
+            side: THREE.FrontSide,
+            polygonOffset: true,
+            polygonOffsetFactor: -1,
+            polygonOffsetUnits: -1,
         });
 
         overlayMesh = new THREE.Mesh(overlayGeom, overlayMat);
         overlayMesh.renderOrder = 5;
         currentMesh.add(overlayMesh);
+    }
+
+    function rebuildGhostMesh(selectedFaceList) {
+        disposeGhostMesh();
+        if (!currentMesh || !selectedFaceList || !selectedFaceList.length) return;
+        if (!basePositions || !baseIndices) return;
+
+        const selectedSet = new Set(selectedFaceList);
+        const remainingFaces = [];
+        for (let f = 0; f < baseFaceCount; f++) {
+            if (!selectedSet.has(f)) remainingFaces.push(f);
+        }
+        if (!remainingFaces.length) return;
+
+        // Build non-indexed geometry for remaining faces
+        const positions = new Float32Array(remainingFaces.length * 9);
+        for (let i = 0; i < remainingFaces.length; i++) {
+            const faceIndex = remainingFaces[i];
+            const i0 = baseIndices[faceIndex * 3 + 0];
+            const i1 = baseIndices[faceIndex * 3 + 1];
+            const i2 = baseIndices[faceIndex * 3 + 2];
+            const o = i * 9;
+            positions[o + 0] = basePositions[i0 * 3 + 0];
+            positions[o + 1] = basePositions[i0 * 3 + 1];
+            positions[o + 2] = basePositions[i0 * 3 + 2];
+            positions[o + 3] = basePositions[i1 * 3 + 0];
+            positions[o + 4] = basePositions[i1 * 3 + 1];
+            positions[o + 5] = basePositions[i1 * 3 + 2];
+            positions[o + 6] = basePositions[i2 * 3 + 0];
+            positions[o + 7] = basePositions[i2 * 3 + 1];
+            positions[o + 8] = basePositions[i2 * 3 + 2];
+        }
+
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+        geom.computeVertexNormals();
+
+        const mat = new THREE.MeshStandardMaterial({
+            color: 0x6b7280,
+            transparent: true,
+            opacity: 0.15,
+            metalness: 0.0,
+            roughness: 0.9,
+            depthWrite: false,
+            side: THREE.FrontSide,
+            polygonOffset: true,
+            polygonOffsetFactor: 1,
+            polygonOffsetUnits: 1,
+        });
+
+        ghostMesh = new THREE.Mesh(geom, mat);
+        ghostMesh.position.copy(currentMesh.position);
+        ghostMesh.renderOrder = 3;
+        pivot.add(ghostMesh);
+    }
+
+    function rebuildSelectionOutline(selectedFaceList, displayGeom) {
+        disposeSelectionOutline();
+        if (!currentMesh || !selectedFaceList || !selectedFaceList.length) return;
+        if (!displayGeom) return;
+
+        const edgesGeom = new THREE.EdgesGeometry(displayGeom, 0.1);
+        const lineGeom = new LineSegmentsGeometry();
+        lineGeom.setPositions(edgesGeom.getAttribute("position").array);
+        edgesGeom.dispose();
+
+        selectionOutlineMaterial = new LineMaterial({
+            color: 0x111111,
+            linewidth: Math.max(2, getEdgeLineWidthPx() * 1.6),
+            transparent: true,
+            opacity: 0.85,
+            depthTest: true,
+            polygonOffset: true,
+            polygonOffsetFactor: -2,
+            polygonOffsetUnits: -2,
+        });
+        renderer.getDrawingBufferSize(drawBufferSize);
+        selectionOutlineMaterial.resolution.set(drawBufferSize.x, drawBufferSize.y);
+
+        selectionOutline = new LineSegments2(lineGeom, selectionOutlineMaterial);
+        selectionOutline.renderOrder = 12;
+        currentMesh.add(selectionOutline);
     }
 
     function fitHelpersAndCamera(geometry) {
@@ -538,6 +652,8 @@ export function createViewer(container, initialViewSettings = {}) {
         const { vertices, faces } = meshData;
         disposeOverlay();
         componentOverlays = [];
+        disposeGhostMesh();
+        disposeSelectionOutline();
 
         // positions: flat float array length = vertices.length * 3
         basePositions = new Float32Array(vertices.length * 3);
@@ -570,9 +686,14 @@ export function createViewer(container, initialViewSettings = {}) {
         const { refitCamera = true } = options;
         if (!basePositions || !baseIndices) return;
         applyGeometry(faceIndices, refitCamera);
-        // Hide overlays when isolating a component subset
+        // Hide overlays when isolating a component subset and show selection visuals
         if (faceIndices && faceIndices.length) {
             disposeOverlay();
+            rebuildGhostMesh(faceIndices);
+            rebuildSelectionOutline(faceIndices, currentMesh.geometry);
+        } else {
+            disposeGhostMesh();
+            disposeSelectionOutline();
         }
     }
 
@@ -581,6 +702,8 @@ export function createViewer(container, initialViewSettings = {}) {
         if (!basePositions || !baseIndices) return;
         applyGeometry(null, refitCamera);
         setIdentityMaps();
+        disposeGhostMesh();
+        disposeSelectionOutline();
     }
 
     function onResize() {
@@ -601,6 +724,9 @@ export function createViewer(container, initialViewSettings = {}) {
         }
         if (edgeLineMaterial) {
             edgeLineMaterial.resolution.set(drawBufferSize.x, drawBufferSize.y);
+        }
+        if (selectionOutlineMaterial) {
+            selectionOutlineMaterial.resolution.set(drawBufferSize.x, drawBufferSize.y);
         }
     }
     window.addEventListener("resize", onResize);
