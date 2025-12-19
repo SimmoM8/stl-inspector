@@ -169,7 +169,7 @@ function computeComponents(meshData) {
     }
 
     return components;
-    }
+}
 
 function applyComponentSelection(componentIndex) {
     const hasSelection = componentIndex !== null && componentIndex !== undefined;
@@ -372,7 +372,7 @@ function renderSelection() {
         pageLabel,
         description,
         hint,
-                disableNav,
+        disableNav,
     });
 
     updateToolbarVisibility(state, dom, selection);
