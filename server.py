@@ -7,14 +7,31 @@ from analyze_stl import analyze_mesh
 
 app = Flask(__name__)
 
-CORS(app)
+# Restrict CORS to known dev origins to avoid 403 during local testing.
+# Allow common dev origins plus "null" when opening index.html from file://
+ALLOWED_ORIGINS = [
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+    "null",
+]
+
+CORS(
+    app,
+    resources={r"/api/*": {"origins": ALLOWED_ORIGINS}},
+    methods=["POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
+)
 
 @app.route("/ping")
 def ping():
     return "pong"
 
-@app.route("/api/analyze", methods=["POST"])
+@app.route("/api/analyze", methods=["POST", "OPTIONS"])
 def analyze():
+    if request.method == "OPTIONS":
+        # Handle preflight requests quickly.
+        return ("", 204)
+
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
 

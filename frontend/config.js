@@ -1,17 +1,15 @@
 // config.js
 
 export function getAnalyzeUrl() {
-    // If the frontend is hosted by the Flask server in production,
-    // this can be a relative URL.
-    // But during dev (Live Server / python http.server), we need to hit Flask directly.
-
-    const { hostname, protocol } = window.location;
+    // Vite dev server: use proxy relative path to avoid CORS.
+    const isViteDev = typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV;
+    if (isViteDev) return "/api/analyze";
 
     // If you open index.html directly (file://) or use a static server,
     // default to Flask on port 5000.
+    const { hostname, protocol } = window.location;
     const isFile = protocol === "file:";
     const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
-
     if (isFile || isLocalhost) {
         return "http://127.0.0.1:5000/api/analyze";
     }
