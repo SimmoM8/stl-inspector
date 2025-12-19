@@ -64,7 +64,7 @@ function renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup,
     createGroup("Info", groups.info);
 }
 
-function renderComponentsList(state, dom, applyComponentSelection) {
+function renderComponentsList(state, dom, selection, applyComponentSelection) {
     dom.componentsList.innerHTML = "";
     if (!state.components.length) return;
 
@@ -73,7 +73,7 @@ function renderComponentsList(state, dom, applyComponentSelection) {
         const facesText = `${comp.counts.numFaces} faces`;
         const vertsText = `${comp.counts.numVertices} verts`;
         btn.textContent = `Component ${comp.componentIndex} (${facesText}, ${vertsText})`;
-        const isSelected = state.selection?.type === "component" && state.selection.id === comp.componentIndex;
+        const isSelected = selection?.type === "component" && selection.id === comp.componentIndex;
         btn.classList.toggle("active", isSelected);
         btn.addEventListener("click", () => {
             applyComponentSelection(comp.componentIndex);
@@ -110,9 +110,9 @@ function renderDetails(dom, issue, meta) {
     dom.showAllBtn.disabled = false;
 }
 
-function updateActiveButtons(state, issueButtons) {
+function updateActiveButtons(selection, issueButtons) {
     issueButtons.forEach((info) => {
-        const isSelected = state.selection?.type === "issue" && state.selection.id === info.index;
+        const isSelected = selection?.type === "issue" && selection.id === info.index;
         info.el.classList.toggle("active", isSelected);
     });
 }
@@ -127,9 +127,9 @@ function updateSummary(dom, summary) {
     }
 }
 
-function updateToolbarVisibility(state, dom) {
-    const hasIssueSelection = state.selection?.type === "issue";
-    const hasComponentSelection = state.selection?.type === "component";
+function updateToolbarVisibility(state, dom, selection) {
+    const hasIssueSelection = selection?.type === "issue";
+    const hasComponentSelection = selection?.type === "component";
     if (dom.cameraToolbar) dom.cameraToolbar.classList.toggle("hidden", false); // always visible
     if (dom.inspectToolbar) dom.inspectToolbar.classList.toggle("hidden", !(hasIssueSelection || hasComponentSelection));
     if (dom.renderToolbar) dom.renderToolbar.classList.toggle("hidden", !(hasIssueSelection || hasComponentSelection));

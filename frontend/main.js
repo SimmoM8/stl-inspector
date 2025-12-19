@@ -18,18 +18,9 @@ viewer.setViewSettings(DEFAULT_VIEW_SETTINGS);
 resetState();
 selectionStore.clear();
 
-function setSelection(selection) {
-    state.selection = selection
-        ? {
-            type: selection.type || null,
-            id: selection.id ?? null,
-            bounds: selection.bounds || null,
-        }
-        : { type: null, id: null, bounds: null };
-}
-
 function getSelectedIssueIndex() {
-    return state.selection?.type === "issue" ? state.selection.id ?? -1 : -1;
+    const sel = selectionStore.getSelection();
+    return sel?.type === "issue" ? sel.id ?? -1 : -1;
 }
 
 function getSelectedIssue() {
@@ -49,14 +40,15 @@ function toggleGroup(sev) {
         previewIssue,
         restoreSelectionHighlight
     );
-    updateActiveButtons(state, issueButtons);
+    updateActiveButtons(selectionStore.getSelection(), issueButtons);
 }
 
 function refreshUI() {
+    const selection = selectionStore.getSelection();
     renderSelection();
-    renderComponentsList(state, dom, applyComponentSelection);
+    renderComponentsList(state, dom, selection, applyComponentSelection);
     updateSummary(dom, state.summary);
-    updateActiveButtons(state, issueButtons);
+    updateActiveButtons(selection, issueButtons);
     dom.issuesFilterButtons.forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.filter === state.issueFilter);
     });
@@ -203,7 +195,7 @@ function applyComponentSelection(componentIndex) {
             viewer.frameView();
         }
     }
-    setSelection(comp ? { type: "component", id: comp.componentIndex, bounds: bounds?.box || null } : null);
+    selectionStore.setSelection(comp ? { type: "component", id: comp.componentIndex, bounds: bounds?.box || null } : null);
     refreshUI();
 }
 
@@ -304,8 +296,9 @@ function syncViewControls() {
 }
 
 function renderSelection() {
+    const selection = selectionStore.getSelection();
     const issue = getSelectedIssue();
-    updateActiveButtons(state, issueButtons);
+    updateActiveButtons(selection, issueButtons);
     const iconClass = state.highlightEnabled ? "bi-lightbulb-fill" : "bi-lightbulb";
     dom.highlightToggleBtn.innerHTML = `<i class="bi ${iconClass}"></i>`;
     dom.highlightToggleBtn.title = state.highlightEnabled ? "Hide highlights" : "Show highlights";
@@ -314,8 +307,8 @@ function renderSelection() {
 
     if (!issue) {
         if (state.highlightEnabled) viewer.clearHighlights();
-        if (state.selection?.type === "component") {
-            const comp = selectionStore.getComponent(state.selection.id);
+        if (selection?.type === "component") {
+            const comp = selectionStore.getComponent(selection.id);
             const placeholderIssue = comp
                 ? { severity: "info", type: `Component ${comp.componentIndex}`, message: "" }
                 : null;
@@ -378,10 +371,10 @@ function renderSelection() {
         pageLabel,
         description,
         hint,
-        disableNav,
+                disableNav,
     });
 
-    updateToolbarVisibility(state, dom);
+    updateToolbarVisibility(state, dom, selection);
 }
 
 function selectIssue(idx) {
@@ -389,7 +382,7 @@ function selectIssue(idx) {
     selectionStore.clearSelection();
     viewer.showAllComponents({ refitCamera: false });
     const bounds = viewer.getCurrentBounds()?.box || null;
-    setSelection(issue ? { type: "issue", id: idx, bounds } : null);
+    selectionStore.setSelection(issue ? { type: "issue", id: idx, bounds } : null);
     state.itemIndex = 0;
     state.mode = "step";
     renderSelection();
@@ -401,9 +394,8 @@ function clearSelection() {
     state.mode = "step";
     selectionStore.clearSelection();
     viewer.showAllComponents({ refitCamera: false });
-    setSelection(null);
     refreshUI();
-    updateToolbarVisibility(state, dom);
+    updateToolbarVisibility(state, dom, selectionStore.getSelection());
 }
 
 function moveItem(delta) {
@@ -518,7 +510,7 @@ dom.fileInput.addEventListener("change", async () => {
         selectionStore.setMesh(data.mesh);
         selectionStore.setComponents(state.components);
         selectionStore.clearSelection();
-        setSelection(null);
+        selectionStore.setSelection(null);
 
         state.summary = data.summary || null;
 
@@ -542,7 +534,7 @@ dom.fileInput.addEventListener("change", async () => {
         } else {
             viewer.showAllComponents({ refitCamera: false });
             selectionStore.clearSelection();
-            setSelection(null);
+            selectionStore.setSelection(null);
             refreshUI();
         }
 
