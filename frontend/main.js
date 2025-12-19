@@ -56,6 +56,8 @@ function refreshUI() {
     updateMiniStatus();
 }
 
+selectionStore.subscribe(() => refreshUI());
+
 function getIssueItems(issue) {
     const faces = Array.isArray(issue.faces) ? issue.faces : [];
     const edges = Array.isArray(issue.edges) ? issue.edges : [];
@@ -167,7 +169,7 @@ function computeComponents(meshData) {
     }
 
     return components;
-}
+    }
 
 function applyComponentSelection(componentIndex) {
     const hasSelection = componentIndex !== null && componentIndex !== undefined;
@@ -185,7 +187,6 @@ function applyComponentSelection(componentIndex) {
             viewer.frameView();
         }
     } else {
-        selectionStore.clearSelection();
         viewer.showAllComponents({ refitCamera: false });
         const allBounds = viewer.getCurrentBounds();
         bounds = allBounds;
@@ -379,7 +380,6 @@ function renderSelection() {
 
 function selectIssue(idx) {
     const issue = state.issues[idx];
-    selectionStore.clearSelection();
     viewer.showAllComponents({ refitCamera: false });
     const bounds = viewer.getCurrentBounds()?.box || null;
     selectionStore.setSelection(issue ? { type: "issue", id: idx, bounds } : null);
@@ -392,8 +392,8 @@ function clearSelection() {
     viewer.clearHighlights();
     state.itemIndex = 0;
     state.mode = "step";
-    selectionStore.clearSelection();
     viewer.showAllComponents({ refitCamera: false });
+    selectionStore.setSelection(null);
     refreshUI();
     updateToolbarVisibility(state, dom, selectionStore.getSelection());
 }
@@ -509,7 +509,6 @@ dom.fileInput.addEventListener("change", async () => {
         state.components = computeComponents(data.mesh);
         selectionStore.setMesh(data.mesh);
         selectionStore.setComponents(state.components);
-        selectionStore.clearSelection();
         selectionStore.setSelection(null);
 
         state.summary = data.summary || null;
@@ -533,7 +532,6 @@ dom.fileInput.addEventListener("change", async () => {
             applyComponentSelection(largest.componentIndex);
         } else {
             viewer.showAllComponents({ refitCamera: false });
-            selectionStore.clearSelection();
             selectionStore.setSelection(null);
             refreshUI();
         }
