@@ -13,6 +13,10 @@ function createDefaultState() {
         summary: null,
         issueFilter: "all",
         issuesSearch: "",
+        componentSearch: "",
+        componentVisibility: {
+            ghosted: new Set(),
+        },
         activePanel: "issues",
         collapsedGroups: {
             error: false,
@@ -25,7 +29,11 @@ function createDefaultState() {
 const state = createDefaultState();
 
 function resetState() {
-    Object.assign(state, createDefaultState());
+    Object.assign(state, createDefaultState(), {
+        componentVisibility: {
+            ghosted: new Set(),
+        },
+    });
 }
 
 export { state, resetState };

@@ -46,7 +46,7 @@ function toggleGroup(sev) {
 function refreshUI() {
     const selection = selectionStore.getSelection();
     renderSelection();
-    renderComponentsList(state, dom, selection, applyComponentSelection);
+    renderComponentsList(state, dom, selection, applyComponentSelection, setComponentGhosted);
     updateSummary(dom, state.summary);
     updateActiveButtons(selection, issueButtons);
     dom.issuesFilterButtons.forEach((btn) => {
@@ -171,6 +171,46 @@ function computeComponents(meshData) {
     return components;
 }
 
+function ensureComponentVisibility() {
+    if (!state.componentVisibility || !(state.componentVisibility.ghosted instanceof Set)) {
+        state.componentVisibility = { ghosted: new Set() };
+    }
+}
+
+function isComponentGhosted(componentIndex) {
+    ensureComponentVisibility();
+    return state.componentVisibility.ghosted.has(componentIndex);
+}
+
+function buildComponentOverlayData() {
+    ensureComponentVisibility();
+    return state.components.map((comp) => ({
+        ...comp,
+        ghosted: isComponentGhosted(comp.componentIndex),
+    }));
+}
+
+function updateComponentOverlays() {
+    viewer.setComponentOverlays(buildComponentOverlayData());
+}
+
+function setComponentGhosted(componentIndex, ghosted) {
+    ensureComponentVisibility();
+    if (ghosted) {
+        state.componentVisibility.ghosted.add(componentIndex);
+    } else {
+        state.componentVisibility.ghosted.delete(componentIndex);
+    }
+    updateComponentOverlays();
+    refreshUI();
+}
+
+function clearComponentGhosting() {
+    ensureComponentVisibility();
+    state.componentVisibility.ghosted.clear();
+    updateComponentOverlays();
+}
+
 function applyComponentSelection(componentIndex) {
     const hasSelection = componentIndex !== null && componentIndex !== undefined;
     const comp = hasSelection ? selectionStore.selectComponent(componentIndex) : null;
@@ -195,6 +235,7 @@ function applyComponentSelection(componentIndex) {
         } else {
             viewer.frameView();
         }
+        updateComponentOverlays();
     }
     selectionStore.setSelection(comp ? { type: "component", id: comp.componentIndex, bounds: bounds?.box || null } : null);
     refreshUI();
@@ -381,6 +422,7 @@ function renderSelection() {
 function selectIssue(idx) {
     const issue = state.issues[idx];
     viewer.showAllComponents({ refitCamera: false });
+    updateComponentOverlays();
     const bounds = viewer.getCurrentBounds()?.box || null;
     selectionStore.setSelection(issue ? { type: "issue", id: idx, bounds } : null);
     state.itemIndex = 0;
@@ -393,6 +435,7 @@ function clearSelection() {
     state.itemIndex = 0;
     state.mode = "step";
     viewer.showAllComponents({ refitCamera: false });
+    updateComponentOverlays();
     selectionStore.setSelection(null);
     refreshUI();
     updateToolbarVisibility(state, dom, selectionStore.getSelection());
@@ -509,7 +552,8 @@ dom.fileInput.addEventListener("change", async () => {
         state.components = computeComponents(data.mesh);
         selectionStore.setMesh(data.mesh);
         selectionStore.setComponents(state.components);
-        viewer.setComponentOverlays(state.components);
+        state.componentVisibility = { ghosted: new Set() };
+        viewer.setComponentOverlays(buildComponentOverlayData());
         selectionStore.setSelection(null);
 
         state.summary = data.summary || null;
@@ -534,6 +578,7 @@ dom.fileInput.addEventListener("change", async () => {
         } else {
             viewer.showAllComponents({ refitCamera: false });
             selectionStore.setSelection(null);
+            updateComponentOverlays();
             refreshUI();
         }
 
@@ -591,6 +636,7 @@ dom.showAllBtn.addEventListener("click", () => {
 });
 
 dom.showAllComponentsBtn.addEventListener("click", () => {
+    clearComponentGhosting();
     applyComponentSelection(null);
 });
 
@@ -598,6 +644,11 @@ dom.autoLargestInput.addEventListener("change", () => {
     if (dom.autoLargestInput.checked) {
         selectLargestComponent();
     }
+});
+
+dom.componentsSearch.addEventListener("input", () => {
+    state.componentSearch = dom.componentsSearch.value || "";
+    refreshUI();
 });
 
 dom.railButtons.forEach((btn) => {

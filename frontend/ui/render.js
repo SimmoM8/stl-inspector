@@ -66,12 +66,20 @@ function renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup,
     createGroup("Info", groups.info);
 }
 
-function renderComponentsList(state, dom, selection, applyComponentSelection) {
+function renderComponentsList(state, dom, selection, applyComponentSelection, toggleGhost) {
     dom.componentsList.innerHTML = "";
     if (!state.components.length) return;
 
-    state.components.forEach((comp) => {
-        const btn = document.createElement("button");
+    const search = (state.componentSearch || "").trim().toLowerCase();
+    const matchesSearch = (comp) => {
+        if (!search) return true;
+        const label = `component ${comp.componentIndex}`;
+        return label.toLowerCase().includes(search);
+    };
+
+    state.components.filter(matchesSearch).forEach((comp) => {
+        const row = document.createElement("div");
+        row.className = "component-row";
         const facesText = `${comp.counts.numFaces} faces`;
         const vertsText = `${comp.counts.numVertices} verts`;
         const chip = document.createElement("span");
@@ -81,14 +89,39 @@ function renderComponentsList(state, dom, selection, applyComponentSelection) {
         const label = document.createElement("span");
         label.textContent = `Component ${comp.componentIndex} (${facesText}, ${vertsText})`;
 
-        btn.appendChild(chip);
-        btn.appendChild(label);
-        const isSelected = selection?.type === "component" && selection.id === comp.componentIndex;
-        btn.classList.toggle("active", isSelected);
-        btn.addEventListener("click", () => {
+        const actions = document.createElement("div");
+        actions.className = "component-actions";
+
+        const isolateBtn = document.createElement("button");
+        isolateBtn.className = "chip-btn";
+        isolateBtn.textContent = "Isolate";
+        isolateBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
             applyComponentSelection(comp.componentIndex);
         });
-        dom.componentsList.appendChild(btn);
+
+        const isGhosted = state.componentVisibility?.ghosted?.has(comp.componentIndex);
+        const ghostBtn = document.createElement("button");
+        ghostBtn.className = "chip-btn";
+        ghostBtn.textContent = isGhosted ? "Show" : "Ghost";
+        ghostBtn.title = isGhosted ? "Show component" : "Ghost component";
+        ghostBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            toggleGhost(comp.componentIndex, !isGhosted);
+        });
+
+        actions.appendChild(isolateBtn);
+        actions.appendChild(ghostBtn);
+
+        row.appendChild(chip);
+        row.appendChild(label);
+        row.appendChild(actions);
+        const isSelected = selection?.type === "component" && selection.id === comp.componentIndex;
+        row.classList.toggle("active", isSelected);
+        row.addEventListener("click", () => {
+            applyComponentSelection(comp.componentIndex);
+        });
+        dom.componentsList.appendChild(row);
     });
 }
 

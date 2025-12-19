@@ -418,6 +418,10 @@ export function createViewer(container, initialViewSettings = {}) {
         for (const comp of componentOverlays) {
             const colorHex = getComponentColor(comp.componentIndex);
             const c = new THREE.Color(colorHex);
+            const ghosted = !!comp.ghosted;
+            if (ghosted) {
+                c.lerp(new THREE.Color(0x8a8f9a), 0.8); // soften ghosted components
+            }
             for (const faceIndex of comp.faceIndices) {
                 if (faceIndex < 0 || faceIndex >= faceCount) continue;
                 const i0 = indexAttr.getX(faceIndex * 3 + 0);

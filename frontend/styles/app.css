@@ -341,7 +341,7 @@ h5 {
 }
 
 #issues .issue-btn,
-#componentsList button {
+#componentsList .component-row {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -364,7 +364,7 @@ h5 {
 }
 
 #issues .issue-btn:hover,
-#componentsList button:hover {
+#componentsList .component-row:hover {
     background: #152038;
     transform: translateY(-1px);
 }
@@ -375,7 +375,7 @@ h5 {
     box-shadow: inset 3px 0 0 var(--accent);
 }
 
-#componentsList button.active {
+#componentsList .component-row.active {
     border-color: var(--accent);
     background: var(--accent-soft);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
@@ -388,6 +388,44 @@ h5 {
     border: 1px solid rgba(255, 255, 255, 0.8);
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
     flex-shrink: 0;
+}
+
+#componentsControls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+#componentsControls input[type="search"] {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--stroke);
+    border-radius: var(--r2);
+    background: var(--surface-2);
+    color: var(--text);
+}
+
+.component-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 6px;
+}
+
+.component-actions .chip-btn {
+    border: 1px solid var(--stroke);
+    background: var(--surface-1);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: var(--r2);
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.component-actions .chip-btn:hover {
+    background: #152038;
+    border-color: var(--accent);
 }
 
 .sev-dot {
