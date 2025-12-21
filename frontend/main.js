@@ -11,6 +11,11 @@ import {
     updateSummary,
     updateToolbarVisibility,
 } from "./ui/render.js";
+import { createComponentsController } from "./app/componentsController.js";
+import { createIssuesController } from "./app/issuesController.js";
+import { createViewSettingsController } from "./app/viewSettingsController.js";
+import { createLayoutController } from "./app/layoutController.js";
+import { createStatusController } from "./app/statusController.js";
 
 const viewer = createViewer(dom.viewerContainer);
 viewer.setViewSettings(DEFAULT_VIEW_SETTINGS);
@@ -18,539 +23,57 @@ viewer.setViewSettings(DEFAULT_VIEW_SETTINGS);
 resetState();
 selectionStore.clear();
 
-// Get current issue index from selectionStore; returns -1 when nothing is selected.
-function getSelectedIssueIndex() {
-    const sel = selectionStore.getSelection();
-    return sel?.type === "issue" ? sel.id ?? -1 : -1;
-}
-
-// Fetch selected issue object from state; null when none is active.
-function getSelectedIssue() {
-    const idx = getSelectedIssueIndex();
-    return idx >= 0 ? state.issues[idx] : null;
-}
-
 const issueButtons = [];
-// Toggle collapsed/expanded state for an issue severity group and re-render list.
-function toggleGroup(sev) {
-    state.collapsedGroups[sev] = !state.collapsedGroups[sev];
+
+const componentsController = createComponentsController({ state, viewer, selectionStore });
+const issuesController = createIssuesController({
+    state,
+    viewer,
+    selectionStore,
+    dom,
+    issueButtons,
+    renderDetails,
+    updateToolbarVisibility,
+    updateActiveButtons,
+    renderIssuesGrouped,
+});
+const viewSettingsController = createViewSettingsController({ viewer, dom, state });
+const layoutController = createLayoutController({ dom, state });
+const statusController = createStatusController({ dom, state, issuesController });
+
+function renderIssueList() {
     renderIssuesGrouped(
         state,
         dom,
         issueButtons,
-        selectIssue,
-        toggleGroup,
-        previewIssue,
-        restoreSelectionHighlight
+        issuesController.selectIssue,
+        issuesController.toggleGroup,
+        issuesController.previewIssue,
+        issuesController.restoreSelectionHighlight
     );
-    updateActiveButtons(selectionStore.getSelection(), issueButtons);
 }
 
-// Re-render UI pieces to reflect the latest selection and state.
 function refreshUI() {
     const selection = selectionStore.getSelection();
-    renderSelection();
-    renderComponentsList(state, dom, selection, applyComponentSelection, setComponentGhosted);
+    issuesController.renderSelection();
+    renderComponentsList(state, dom, selection, componentsController.applyComponentSelection, componentsController.setComponentGhosted);
     updateSummary(dom, state.summary);
     updateActiveButtons(selection, issueButtons);
     dom.issuesFilterButtons.forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.filter === state.issueFilter);
     });
     if (dom.emptyState) dom.emptyState.classList.toggle("hidden", !!state.summary);
-    updateMiniStatus();
+    statusController.updateMiniStatus();
 }
 
+componentsController.setOnChange(refreshUI);
+issuesController.setOnChange(refreshUI);
 selectionStore.subscribe(() => refreshUI());
 
-// Normalize issue index data into a kind + array for highlighting.
-function getIssueItems(issue) {
-    const faces = Array.isArray(issue.faces) ? issue.faces : [];
-    const edges = Array.isArray(issue.edges) ? issue.edges : [];
-    if (faces.length) return { kind: "face", items: faces };
-    if (edges.length) return { kind: "edge", items: edges };
-    return { kind: "none", items: [] };
-}
-
-// Update the compact status label with highlight/mode/item info.
-function updateMiniStatus() {
-    if (!dom.miniStatus) return;
-    if (!state.summary) {
-        dom.miniStatus.classList.add("hidden");
-        dom.miniStatus.textContent = "";
-        return;
-    }
-    const highlightText = state.highlightEnabled ? "Highlights ON" : "Highlights OFF";
-    const modeText = state.mode === "all" ? "Mode ALL" : "Mode STEP";
-    let itemText = "Item –";
-    const selectedIssue = getSelectedIssue();
-    if (selectedIssue) {
-        const { items } = getIssueItems(selectedIssue);
-        const total = items.length;
-        if (state.mode === "all") {
-            itemText = total ? `Item All (${total})` : "Item All";
-        } else if (total) {
-            const safeIndex = ((state.itemIndex % total) + total) % total;
-            itemText = `Item ${safeIndex + 1} / ${total}`;
-        }
-    }
-    dom.miniStatus.textContent = `${highlightText} • ${modeText} • ${itemText}`;
-    dom.miniStatus.classList.toggle("hidden", false);
-}
-
-// Check if an issue passes current filter/search inputs.
-function issueMatchesFilters(issue) {
-    if (!issue) return false;
-    const filter = (state.issueFilter || "all").toLowerCase();
-    const sev = (issue.severity || "info").toLowerCase();
-    if (filter !== "all" && sev !== filter) return false;
-    const search = (state.issuesSearch || "").trim().toLowerCase();
-    if (!search) return true;
-    const typeText = (issue.type || "").toLowerCase();
-    const messageText = (issue.message || "").toLowerCase();
-    return typeText.includes(search) || messageText.includes(search);
-}
-
-// Build connected components from mesh faces for selection and overlays.
-function computeComponents(meshData) {
-    const faces = Array.isArray(meshData.faces) ? meshData.faces : [];
-    if (!faces.length) return [];
-
-    const adjacency = Array.from({ length: faces.length }, () => []);
-    const edgeMap = new Map();
-
-    for (let fi = 0; fi < faces.length; fi++) {
-        const [a, b, c] = faces[fi];
-        const edges = [
-            [a, b],
-            [b, c],
-            [c, a],
-        ];
-        for (const [u, v] of edges) {
-            const k = u < v ? `${u}-${v}` : `${v}-${u}`;
-            if (!edgeMap.has(k)) edgeMap.set(k, []);
-            edgeMap.get(k).push(fi);
-        }
-    }
-
-    // Build adjacency from shared edges
-    for (const facesList of edgeMap.values()) {
-        if (facesList.length < 2) continue;
-        const first = facesList[0];
-        for (let i = 1; i < facesList.length; i++) {
-            const other = facesList[i];
-            adjacency[first].push(other);
-            adjacency[other].push(first);
-        }
-    }
-
-    const visited = new Array(faces.length).fill(false);
-    const components = [];
-
-    for (let i = 0; i < faces.length; i++) {
-        if (visited[i]) continue;
-        const queue = [i];
-        const compFaces = [];
-        const compVerts = new Set();
-        visited[i] = true;
-        while (queue.length) {
-            const f = queue.pop();
-            compFaces.push(f);
-            const [a, b, c] = faces[f];
-            compVerts.add(a);
-            compVerts.add(b);
-            compVerts.add(c);
-            for (const nbr of adjacency[f]) {
-                if (!visited[nbr]) {
-                    visited[nbr] = true;
-                    queue.push(nbr);
-                }
-            }
-        }
-        components.push({
-            componentIndex: components.length,
-            faceIndices: compFaces,
-            counts: {
-                numFaces: compFaces.length,
-                numVertices: compVerts.size,
-            },
-        });
-    }
-
-    return components;
-}
-
-// Ensure component visibility state exists before reading/writing.
-function ensureComponentVisibility() {
-    if (!state.componentVisibility || !(state.componentVisibility.ghosted instanceof Set)) {
-        state.componentVisibility = { ghosted: new Set() };
-    }
-}
-
-// Tell whether a component index is currently ghosted.
-function isComponentGhosted(componentIndex) {
-    ensureComponentVisibility();
-    return state.componentVisibility.ghosted.has(componentIndex);
-}
-
-// Build overlay payload with ghost flags for the viewer.
-function buildComponentOverlayData() {
-    ensureComponentVisibility();
-    return state.components.map((comp) => ({
-        ...comp,
-        ghosted: isComponentGhosted(comp.componentIndex),
-    }));
-}
-
-// Push latest component overlay state into the viewer.
-function updateComponentOverlays() {
-    viewer.setComponentOverlays(buildComponentOverlayData());
-}
-
-// Mark a component as ghosted or visible, then refresh overlays/UI.
-function setComponentGhosted(componentIndex, ghosted) {
-    ensureComponentVisibility();
-    if (ghosted) {
-        state.componentVisibility.ghosted.add(componentIndex);
-    } else {
-        state.componentVisibility.ghosted.delete(componentIndex);
-    }
-    updateComponentOverlays();
-    refreshUI();
-}
-
-// Clear all ghost flags and refresh overlays.
-function clearComponentGhosting() {
-    ensureComponentVisibility();
-    state.componentVisibility.ghosted.clear();
-    updateComponentOverlays();
-}
-
-// Select a component by index (or null to reset) and focus viewer accordingly.
-function applyComponentSelection(componentIndex) {
-    const hasSelection = componentIndex !== null && componentIndex !== undefined;
-    const comp = hasSelection ? selectionStore.selectComponent(componentIndex) : null;
-    let bounds = null;
-
-    if (comp) {
-        viewer.clearHighlights();
-        viewer.showComponent(comp.faceIndices, { refitCamera: false });
-        const offset = viewer.getMeshOffset();
-        bounds = selectionStore.getComponentBounds(comp.componentIndex, offset);
-        if (bounds?.sphere || bounds?.box) {
-            viewer.frameBounds(bounds.sphere || bounds.box, { animate: true });
-        } else {
-            viewer.frameView();
-        }
-    } else {
-        viewer.showAllComponents({ refitCamera: false });
-        const allBounds = viewer.getCurrentBounds();
-        bounds = allBounds;
-        if (allBounds?.sphere || allBounds?.box) {
-            viewer.frameBounds(allBounds.sphere || allBounds.box, { animate: true });
-        } else {
-            viewer.frameView();
-        }
-        updateComponentOverlays();
-    }
-    selectionStore.setSelection(comp ? { type: "component", id: comp.componentIndex, bounds: bounds?.box || null } : null);
-    refreshUI();
-}
-
-// Pick the largest component by face count and isolate it.
-function selectLargestComponent() {
-    if (!state.components.length) return;
-    const largest = state.components.reduce((best, comp) =>
-        comp.counts.numFaces > best.counts.numFaces ? comp : best,
-        state.components[0]
-    );
-    applyComponentSelection(largest.componentIndex);
-}
-
-// Switch which side panel is visible and sync nav rail buttons.
-function setActivePanel(panelName) {
-    state.activePanel = panelName;
-    dom.panels.forEach((p) => {
-        p.classList.toggle("hidden", p.id !== `panel-${panelName}`);
-    });
-    dom.railButtons.forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.panel === panelName);
-    });
-}
-
-const mobileQuery = window.matchMedia("(max-width: 900px)");
-
-// Convenience helper for mobile-only behavior.
-function isMobile() {
-    return mobileQuery.matches;
-}
-
-// Keep drawer toggle disabled on desktop to avoid stray clicks.
-function syncDrawerToggleState() {
-    if (dom.drawerToggleBtn) {
-        dom.drawerToggleBtn.disabled = !isMobile();
-    }
-}
-
-// Open/close the drawer on mobile and ensure it stays closed on desktop.
-function setDrawerOpen(open) {
-    if (!dom.contextPanel || !dom.drawerBackdrop) return;
-    if (!isMobile()) {
-        dom.contextPanel.classList.remove("is-open");
-        dom.drawerBackdrop.classList.remove("is-visible");
-        document.body.classList.remove("no-scroll");
-        syncDrawerToggleState();
-        return;
-    }
-    dom.contextPanel.classList.toggle("is-open", open);
-    dom.drawerBackdrop.classList.toggle("is-visible", open);
-    document.body.classList.toggle("no-scroll", open);
-    syncDrawerToggleState();
-}
-
-// Restore view settings from localStorage into the viewer.
-function loadViewSettings() {
-    const saved = localStorage.getItem("stl-view-settings");
-    if (saved) {
-        try {
-            const parsed = JSON.parse(saved);
-            viewer.setViewSettings(parsed);
-        } catch (e) {
-            console.warn("Failed to parse saved view settings", e);
-        }
-    }
-    syncViewControls();
-}
-
-let statusTimeout = null;
-
-// Persist current viewer settings to localStorage for reuse.
-function saveViewSettings() {
-    const current = viewer.getViewSettings();
-    localStorage.setItem("stl-view-settings", JSON.stringify(current));
-}
-
-// Show a temporary status bubble message to the user.
-function setStatus(message) {
-    if (dom.statusBubble) {
-        dom.statusBubble.textContent = message || "";
-        dom.statusBubble.style.opacity = message ? "1" : "0";
-        if (statusTimeout) clearTimeout(statusTimeout);
-        if (message) {
-            statusTimeout = setTimeout(() => {
-                dom.statusBubble.style.opacity = "0";
-                statusTimeout = null;
-            }, 5000);
-        }
-    }
-}
-
-// Sync UI controls to the viewer's current settings.
-function syncViewControls() {
-    const v = viewer.getViewSettings();
-    dom.edgeThresholdInput.value = v.edgeThreshold;
-    dom.edgeModeSelect.dataset.mode = v.edgeMode;
-    dom.smoothShadingBtn.classList.toggle("active", v.cadShading);
-    dom.xrayToggle.classList.toggle("active", v.xray);
-    dom.wireframeToggle.classList.toggle("active", v.wireframe);
-    dom.gridToggle.classList.toggle("active", v.grid);
-    dom.axesToggle.classList.toggle("active", v.axes);
-    dom.outlineToggle.classList.toggle("active", !!v.outlineEnabled);
-    dom.ssaoToggle.checked = !!v.ssao;
-    dom.exposureSlider.value = v.exposure;
-    if (dom.componentModeToggle) dom.componentModeToggle.checked = !!v.componentMode;
-    const iconClass = state.highlightEnabled ? "bi-lightbulb-fill" : "bi-lightbulb";
-    dom.highlightToggleBtn.innerHTML = `<i class="bi ${iconClass}"></i>`;
-    dom.highlightToggleBtn.title = state.highlightEnabled ? "Hide highlights" : "Show highlights";
-}
-
-// Update details and viewer highlights based on current issue/component selection.
-function renderSelection() {
-    const selection = selectionStore.getSelection();
-    const issue = getSelectedIssue();
-    updateActiveButtons(selection, issueButtons);
-    const iconClass = state.highlightEnabled ? "bi-lightbulb-fill" : "bi-lightbulb";
-    dom.highlightToggleBtn.innerHTML = `<i class="bi ${iconClass}"></i>`;
-    dom.highlightToggleBtn.title = state.highlightEnabled ? "Hide highlights" : "Show highlights";
-    const modeIcon = state.mode === "all" ? "bi-list-check" : "bi-list-ol";
-    dom.modeToggleBtn.innerHTML = `<i class="bi ${modeIcon}"></i>`;
-
-    if (!issue) {
-        if (state.highlightEnabled) viewer.clearHighlights();
-        if (selection?.type === "component") {
-            const comp = selectionStore.getComponent(selection.id);
-            const placeholderIssue = comp
-                ? { severity: "info", type: `Component ${comp.componentIndex}`, message: "" }
-                : null;
-            renderDetails(dom, placeholderIssue, {
-                description: comp
-                    ? `Faces: ${comp.counts.numFaces}, Vertices: ${comp.counts.numVertices}`
-                    : "",
-                pageLabel: comp ? `Component ${comp.componentIndex}` : "Component",
-                hint: "Component isolated. Select an issue to inspect details.",
-                disableNav: true,
-            });
-        } else {
-            renderDetails(dom, null, {
-                description: "",
-                pageLabel: "–",
-                hint: "Upload an STL to begin. Hover issues to preview, use ←/→ to step.",
-                disableNav: true,
-            });
-        }
-        return;
-    }
-
-    const { kind, items } = getIssueItems(issue);
-    const total = items.length;
-    const safeIndex = total ? ((state.itemIndex % total) + total) % total : 0;
-    state.itemIndex = safeIndex;
-
-    let pageLabel = "–";
-    let description = "No indices available for this issue.";
-    let disableNav = true;
-
-    if (state.mode === "all") {
-        if (state.highlightEnabled) viewer.showIssueAll(issue);
-        pageLabel = total ? `All ${total} items` : "All items";
-        description = total ? "Highlighting all items for this issue." : description;
-        disableNav = total <= 1;
-    } else {
-        if (kind === "face" && total) {
-            const faceIndex = items[safeIndex];
-            pageLabel = `Face ${safeIndex + 1} of ${total}`;
-            description = `Face index: ${faceIndex}`;
-            if (state.highlightEnabled) viewer.showIssueItem(issue, safeIndex);
-            disableNav = total <= 1;
-        } else if (kind === "edge" && total) {
-            const edgePair = items[safeIndex];
-            pageLabel = `Edge ${safeIndex + 1} of ${total}`;
-            description = `Edge vertices: ${edgePair.join(" - ")}`;
-            if (state.highlightEnabled) viewer.showIssueItem(issue, safeIndex);
-            disableNav = total <= 1;
-        } else {
-            if (state.highlightEnabled) viewer.showIssueAll(issue);
-        }
-    }
-
-    const hint = state.mode === "all"
-        ? "Showing all items. Press A to switch to step mode."
-        : "Step through items with ←/→ (or J/K). Press A to show all.";
-
-    renderDetails(dom, issue, {
-        pageLabel,
-        description,
-        hint,
-        disableNav,
-    });
-
-    updateToolbarVisibility(state, dom, selection);
-}
-
-// Activate an issue by index, reset stepping, and focus the viewer bounds.
-function selectIssue(idx) {
-    const issue = state.issues[idx];
-    viewer.showAllComponents({ refitCamera: false });
-    updateComponentOverlays();
-    const bounds = viewer.getCurrentBounds()?.box || null;
-    selectionStore.setSelection(issue ? { type: "issue", id: idx, bounds } : null);
-    state.itemIndex = 0;
-    state.mode = "step";
-    renderSelection();
-}
-
-// Clear all selections/highlights and reset viewer overlays.
-function clearSelection() {
-    viewer.clearHighlights();
-    state.itemIndex = 0;
-    state.mode = "step";
-    viewer.showAllComponents({ refitCamera: false });
-    updateComponentOverlays();
-    selectionStore.setSelection(null);
-    refreshUI();
-    updateToolbarVisibility(state, dom, selectionStore.getSelection());
-}
-
-// Step forwards/backwards through items for the selected issue.
-function moveItem(delta) {
-    state.mode = "step"; // auto-switch to stepping when iterating
-    const issue = getSelectedIssue();
-    if (!issue) return;
-    const { items } = getIssueItems(issue);
-    const total = items.length;
-    if (!total) return;
-    state.itemIndex = ((state.itemIndex + delta) % total + total) % total;
-    renderSelection();
-}
-
-// Highlight a full issue or a specific item depending on mode.
-function highlightIssue(issue, mode, itemIndex) {
-    const { kind, items } = getIssueItems(issue);
-    const total = items.length;
-    if (mode === "all") {
-        viewer.showIssueAll(issue);
-        return;
-    }
-    if ((kind === "face" || kind === "edge") && total) {
-        const safeIndex = ((itemIndex % total) + total) % total;
-        viewer.showIssueItem(issue, safeIndex);
-        return;
-    }
-    viewer.showIssueAll(issue);
-}
-
-let previewTimeout = null;
-let restoreTimeout = null;
-
-// Briefly highlight an issue on hover without changing selection.
-function previewIssue(index) {
-    if (previewTimeout) clearTimeout(previewTimeout);
-    if (restoreTimeout) {
-        clearTimeout(restoreTimeout);
-        restoreTimeout = null;
-    }
-    const issue = state.issues[index];
-    previewTimeout = setTimeout(() => {
-        previewTimeout = null;
-        if (!state.highlightEnabled) return;
-        if (!issue) return;
-        highlightIssue(issue, "all", 0);
-    }, 80);
-}
-
-// Return highlight state back to the active selection after preview.
-function restoreSelectionHighlight() {
-    if (previewTimeout) {
-        clearTimeout(previewTimeout);
-        previewTimeout = null;
-    }
-    if (restoreTimeout) clearTimeout(restoreTimeout);
-    restoreTimeout = setTimeout(() => {
-        restoreTimeout = null;
-        if (!state.highlightEnabled) {
-            viewer.clearHighlights();
-            return;
-        }
-        const issue = getSelectedIssue();
-        if (!issue) {
-            viewer.clearHighlights();
-            return;
-        }
-        highlightIssue(issue, state.mode, state.itemIndex);
-    }, 60);
-}
-
 refreshUI();
-loadViewSettings();
-setStatus("");
-renderIssuesGrouped(
-    state,
-    dom,
-    issueButtons,
-    selectIssue,
-    toggleGroup,
-    previewIssue,
-    restoreSelectionHighlight
-);
+viewSettingsController.loadViewSettings();
+statusController.setStatus("");
+renderIssueList();
 
 dom.fileInput.addEventListener("change", async () => {
     const file = dom.fileInput.files[0];
@@ -559,7 +82,7 @@ dom.fileInput.addEventListener("change", async () => {
     const formData = new FormData();
     formData.append("file", file);
 
-    setStatus("Uploading and analyzing...");
+    statusController.setStatus("Uploading and analyzing...");
 
     try {
         const res = await fetch(getAnalyzeUrl(), {
@@ -572,110 +95,81 @@ dom.fileInput.addEventListener("change", async () => {
         }
 
         const data = await res.json();
-        setStatus("Analysis complete");
+        statusController.setStatus("Analysis complete");
         viewer.setMeshFromApi(data.mesh);
         viewer.centerView();
 
         const issues = Array.isArray(data.issues) ? data.issues : [];
-        dom.issuesEl.innerHTML = "";
         issueButtons.length = 0;
         state.issues = issues;
         state.itemIndex = 0;
         state.mode = "step";
-        state.components = computeComponents(data.mesh);
+        state.components = componentsController.computeComponents(data.mesh);
         selectionStore.setMesh(data.mesh);
         selectionStore.setComponents(state.components);
         state.componentVisibility = { ghosted: new Set() };
-        viewer.setComponentOverlays(buildComponentOverlayData());
+        componentsController.updateComponentOverlays();
         selectionStore.setSelection(null);
 
         state.summary = data.summary || null;
 
-        renderIssuesGrouped(
-            state,
-            dom,
-            issueButtons,
-            selectIssue,
-            toggleGroup,
-            previewIssue,
-            restoreSelectionHighlight
-        );
+        renderIssueList();
         refreshUI();
 
         if (dom.autoLargestInput.checked && state.components.length) {
-            const largest = state.components.reduce((best, comp) =>
-                comp.counts.numFaces > best.counts.numFaces ? comp : best,
-                state.components[0]
-            );
-            applyComponentSelection(largest.componentIndex);
+            componentsController.selectLargestComponent();
         } else {
             viewer.showAllComponents({ refitCamera: false });
             selectionStore.setSelection(null);
-            updateComponentOverlays();
+            componentsController.updateComponentOverlays();
             refreshUI();
         }
 
     } catch (err) {
-        setStatus("Error: " + err.message);
+        statusController.setStatus("Error: " + err.message);
     }
 });
 
 dom.issuesFilterButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
         state.issueFilter = btn.dataset.filter || "all";
-        const selectedIssue = getSelectedIssue();
-        if (selectedIssue && !issueMatchesFilters(selectedIssue)) {
-            clearSelection();
+        const selectedIssue = issuesController.getSelectedIssue();
+        if (selectedIssue && !issuesController.issueMatchesFilters(selectedIssue)) {
+            issuesController.clearSelection();
         }
-        renderIssuesGrouped(
-            state,
-            dom,
-            issueButtons,
-            selectIssue,
-            toggleGroup,
-            previewIssue,
-            restoreSelectionHighlight
-        );
+        renderIssueList();
         refreshUI();
     });
 });
 
 dom.issuesSearch.addEventListener("input", () => {
     state.issuesSearch = dom.issuesSearch.value;
-    const selectedIssue = getSelectedIssue();
-    if (selectedIssue && !issueMatchesFilters(selectedIssue)) {
-        clearSelection();
+    const selectedIssue = issuesController.getSelectedIssue();
+    if (selectedIssue && !issuesController.issueMatchesFilters(selectedIssue)) {
+        issuesController.clearSelection();
     }
-    renderIssuesGrouped(
-        state,
-        dom,
-        issueButtons,
-        selectIssue,
-        toggleGroup,
-        previewIssue,
-        restoreSelectionHighlight
-    );
+    renderIssueList();
     refreshUI();
 });
 
-dom.clearBtn.addEventListener("click", clearSelection);
+dom.clearBtn.addEventListener("click", issuesController.clearSelection);
 
-dom.prevBtn.addEventListener("click", () => moveItem(-1));
-dom.nextBtn.addEventListener("click", () => moveItem(1));
+dom.prevBtn.addEventListener("click", () => issuesController.moveItem(-1));
+dom.nextBtn.addEventListener("click", () => issuesController.moveItem(1));
 
 dom.showAllBtn.addEventListener("click", () => {
     state.mode = "all";
-    renderSelection();
+    issuesController.renderSelection();
 });
 
 dom.showAllComponentsBtn.addEventListener("click", () => {
-    clearComponentGhosting();
-    applyComponentSelection(null);
+    componentsController.clearComponentGhosting();
+    componentsController.applyComponentSelection(null);
 });
 
 dom.autoLargestInput.addEventListener("change", () => {
     if (dom.autoLargestInput.checked) {
-        selectLargestComponent();
+        componentsController.selectLargestComponent();
     }
 });
 
@@ -686,43 +180,43 @@ dom.componentsSearch.addEventListener("input", () => {
 
 dom.railButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
-        setActivePanel(btn.dataset.panel);
-        if (isMobile()) setDrawerOpen(true);
+        layoutController.setActivePanel(btn.dataset.panel);
+        if (layoutController.isMobile()) layoutController.setDrawerOpen(true);
     });
 });
 
 if (dom.drawerToggleBtn) {
     dom.drawerToggleBtn.addEventListener("click", () => {
         const isOpen = dom.contextPanel && dom.contextPanel.classList.contains("is-open");
-        setDrawerOpen(!isOpen);
+        layoutController.setDrawerOpen(!isOpen);
     });
-    syncDrawerToggleState();
+    layoutController.syncDrawerToggleState();
 }
 
 if (dom.drawerBackdrop) {
-    dom.drawerBackdrop.addEventListener("click", () => setDrawerOpen(false));
+    dom.drawerBackdrop.addEventListener("click", () => layoutController.setDrawerOpen(false));
 }
 
 document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && isMobile()) {
-        setDrawerOpen(false);
+    if (event.key === "Escape" && layoutController.isMobile()) {
+        layoutController.setDrawerOpen(false);
     }
 });
 
-mobileQuery.addEventListener("change", (event) => {
+layoutController.mobileQuery.addEventListener("change", (event) => {
     if (!event.matches) {
-        setDrawerOpen(false);
+        layoutController.setDrawerOpen(false);
     }
-    syncDrawerToggleState();
+    layoutController.syncDrawerToggleState();
 });
 
 dom.modeToggleBtn.addEventListener("click", () => {
     state.mode = state.mode === "all" ? "step" : "all";
-    renderSelection();
+    issuesController.renderSelection();
 });
 
 dom.focusBtn.addEventListener("click", () => {
-    renderSelection(); // re-run focus logic for current selection
+    issuesController.renderSelection();
 });
 
 dom.centerBtn.addEventListener("click", () => {
@@ -741,19 +235,19 @@ dom.highlightToggleBtn.addEventListener("click", () => {
     if (!state.highlightEnabled) {
         viewer.clearHighlights();
     } else {
-        renderSelection();
+        issuesController.renderSelection();
     }
 });
 
 dom.clearToolbarBtn.addEventListener("click", () => {
-    clearSelection();
-    syncViewControls();
+    issuesController.clearSelection();
+    viewSettingsController.syncViewControls();
 });
 
 dom.edgeThresholdInput.addEventListener("input", () => {
     viewer.setViewSettings({ edgeThreshold: Number(dom.edgeThresholdInput.value) });
-    renderSelection();
-    saveViewSettings();
+    issuesController.renderSelection();
+    viewSettingsController.saveViewSettings();
 });
 
 dom.edgeModeSelect.addEventListener("click", () => {
@@ -762,16 +256,16 @@ dom.edgeModeSelect.addEventListener("click", () => {
     const next = order[(order.indexOf(current) + 1) % order.length];
     viewer.setViewSettings({ edgeMode: next });
     dom.edgeModeSelect.classList.toggle("active", next !== "off");
-    renderSelection();
-    saveViewSettings();
+    issuesController.renderSelection();
+    viewSettingsController.saveViewSettings();
 });
 
 dom.smoothShadingBtn.addEventListener("click", () => {
     const next = !viewer.getViewSettings().cadShading;
     viewer.setViewSettings({ cadShading: next });
     dom.smoothShadingBtn.classList.toggle("active", next);
-    renderSelection();
-    saveViewSettings();
+    issuesController.renderSelection();
+    viewSettingsController.saveViewSettings();
 });
 
 dom.xrayToggle.addEventListener("click", () => {
@@ -781,8 +275,8 @@ dom.xrayToggle.addEventListener("click", () => {
     viewer.setViewSettings(payload);
     dom.xrayToggle.classList.toggle("active", next);
     dom.wireframeToggle.classList.toggle("active", false);
-    renderSelection();
-    saveViewSettings();
+    issuesController.renderSelection();
+    viewSettingsController.saveViewSettings();
 });
 
 dom.wireframeToggle.addEventListener("click", () => {
@@ -792,59 +286,59 @@ dom.wireframeToggle.addEventListener("click", () => {
     viewer.setViewSettings(payload);
     dom.wireframeToggle.classList.toggle("active", next);
     dom.xrayToggle.classList.toggle("active", false);
-    renderSelection();
-    saveViewSettings();
+    issuesController.renderSelection();
+    viewSettingsController.saveViewSettings();
 });
 
 dom.outlineToggle.addEventListener("click", () => {
     const next = !viewer.getViewSettings().outlineEnabled;
     viewer.setViewSettings({ outlineEnabled: next });
     dom.outlineToggle.classList.toggle("active", next);
-    renderSelection();
-    saveViewSettings();
+    issuesController.renderSelection();
+    viewSettingsController.saveViewSettings();
 });
 
 dom.gridToggle.addEventListener("click", () => {
     const next = !viewer.getViewSettings().grid;
     viewer.setViewSettings({ grid: next });
     dom.gridToggle.classList.toggle("active", next);
-    renderSelection();
-    saveViewSettings();
+    issuesController.renderSelection();
+    viewSettingsController.saveViewSettings();
 });
 
 dom.axesToggle.addEventListener("click", () => {
     const next = !viewer.getViewSettings().axes;
     viewer.setViewSettings({ axes: next });
     dom.axesToggle.classList.toggle("active", next);
-    renderSelection();
-    saveViewSettings();
+    issuesController.renderSelection();
+    viewSettingsController.saveViewSettings();
 });
 
 dom.ssaoToggle.addEventListener("change", () => {
     viewer.setViewSettings({ ssao: dom.ssaoToggle.checked });
-    renderSelection();
-    saveViewSettings();
+    issuesController.renderSelection();
+    viewSettingsController.saveViewSettings();
 });
 
 if (dom.componentModeToggle) {
     dom.componentModeToggle.addEventListener("change", () => {
         viewer.setViewSettings({ componentMode: dom.componentModeToggle.checked });
-        renderSelection();
-        saveViewSettings();
+        issuesController.renderSelection();
+        viewSettingsController.saveViewSettings();
     });
 }
 
 dom.exposureSlider.addEventListener("input", () => {
     viewer.setViewSettings({ exposure: Number(dom.exposureSlider.value) });
-    renderSelection();
-    saveViewSettings();
+    issuesController.renderSelection();
+    viewSettingsController.saveViewSettings();
 });
 
 dom.resetViewBtn.addEventListener("click", () => {
     viewer.resetViewSettings();
-    syncViewControls();
-    renderSelection();
-    saveViewSettings();
+    viewSettingsController.syncViewControls();
+    issuesController.renderSelection();
+    viewSettingsController.saveViewSettings();
 });
 
 document.addEventListener("keydown", (event) => {
