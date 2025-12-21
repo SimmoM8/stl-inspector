@@ -55,12 +55,14 @@ const dom = {
     get edgeThresholdInput() { return byId("edgeThreshold"); },
     get edgeModeSelect() { return byId("edgeMode"); },
     get smoothShadingBtn() { return byId("smoothShading"); },
+    get outlineToggle() { return byId("outlineToggle"); },
     get xrayToggle() { return byId("xrayToggle"); },
     get wireframeToggle() { return byId("wireframeToggle"); },
     get gridToggle() { return byId("gridToggle"); },
     get axesToggle() { return byId("axesToggle"); },
     get ssaoToggle() { return byId("ssaoToggle"); },
     get exposureSlider() { return byId("exposureSlider"); },
+    get componentModeToggle() { return byId("componentModeToggle"); },
     get resetViewBtn() { return byId("resetViewBtn"); },
 };
 

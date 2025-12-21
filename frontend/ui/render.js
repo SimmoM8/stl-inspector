@@ -80,14 +80,12 @@ function renderComponentsList(state, dom, selection, applyComponentSelection, to
     state.components.filter(matchesSearch).forEach((comp) => {
         const row = document.createElement("div");
         row.className = "component-row";
-        const facesText = `${comp.counts.numFaces} faces`;
-        const vertsText = `${comp.counts.numVertices} verts`;
         const chip = document.createElement("span");
         chip.className = "component-chip";
         chip.style.backgroundColor = getComponentColor(comp.componentIndex);
 
         const label = document.createElement("span");
-        label.textContent = `Component ${comp.componentIndex} (${facesText}, ${vertsText})`;
+        label.textContent = `Component ${comp.componentIndex}`;
 
         const actions = document.createElement("div");
         actions.className = "component-actions";

@@ -101,6 +101,12 @@
                     <input type="range" id="exposureSlider" min="0.2" max="3" step="0.05" value="1.9">
                 </div>
                 <div class="control-row">
+                    <label class="render-toggle">
+                        <input type="checkbox" id="componentModeToggle">
+                        <span>Component Mode</span>
+                    </label>
+                </div>
+                <div class="control-row">
                     <button id="resetViewBtn" class="btn">Reset view settings</button>
                 </div>
             </div>
@@ -138,6 +144,7 @@
             </div>
             <div class="render-panel hidden" id="renderToolbar">
                 <button id="smoothShading" class="icon-btn" title="Smooth shading" aria-label="Smooth shading"><i class="bi bi-circle-half"></i></button>
+                <button id="outlineToggle" class="icon-btn active" title="Outline" aria-label="Outline"><i class="bi bi-bounding-box-circles"></i></button>
                 <button id="wireframeToggle" class="icon-btn" title="Wireframe" aria-label="Wireframe"><i class="bi bi-bounding-box"></i></button>
                 <button id="xrayToggle" class="icon-btn" title="X-ray" aria-label="X-ray"><i class="bi bi-layers"></i></button>
                 <button id="gridToggle" class="icon-btn active" title="Show grid" aria-label="Show grid"><i class="bi bi-grid-3x3-gap"></i></button>

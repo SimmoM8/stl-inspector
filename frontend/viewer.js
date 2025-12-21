@@ -45,11 +45,17 @@ export function createViewer(container, initialViewSettings = {}) {
     let componentOverlays = [];
     let overlayMesh = null;
     let ghostMesh = null;
+    let selectedMesh = null;
     let selectionOutline = null;
     let selectionOutlineMaterial = null;
+    let componentOutline = null;
+    let componentOutlineMaterial = null;
+    let globalOutline = null;
+    let globalOutlineMaterial = null;
     const drawBufferSize = new THREE.Vector2();
     const tempBox = new THREE.Box3();
     const tempSphere = new THREE.Sphere();
+    const tempVec = new THREE.Vector3();
     const baseMeshColor = new THREE.Color(0xf2f4f7);
     const viewSettings = {
         edgeThreshold: 12,
@@ -61,6 +67,8 @@ export function createViewer(container, initialViewSettings = {}) {
         axes: true,
         exposure: 1.9,
         ssao: false,
+        outlineEnabled: true,
+        componentMode: false,
     };
 
     Object.assign(viewSettings, initialViewSettings);
@@ -245,6 +253,36 @@ export function createViewer(container, initialViewSettings = {}) {
         return { box, sphere };
     }
 
+    function getFaceBounds(faceIndices) {
+        if (!currentMesh || !Array.isArray(faceIndices) || !faceIndices.length) return null;
+        if (!basePositions || !baseIndices) return null;
+
+        const box = new THREE.Box3();
+        box.makeEmpty();
+
+        for (const faceIndex of faceIndices) {
+            if (faceIndex < 0 || faceIndex >= baseFaceCount) continue;
+            const i0 = baseIndices[faceIndex * 3 + 0];
+            const i1 = baseIndices[faceIndex * 3 + 1];
+            const i2 = baseIndices[faceIndex * 3 + 2];
+            const verts = [i0, i1, i2];
+            for (const v of verts) {
+                tempVec.set(
+                    basePositions[v * 3 + 0],
+                    basePositions[v * 3 + 1],
+                    basePositions[v * 3 + 2]
+                );
+                box.expandByPoint(tempVec);
+            }
+        }
+
+        if (box.isEmpty()) return null;
+        box.translate(currentMesh.position);
+        const sphere = new THREE.Sphere();
+        box.getBoundingSphere(sphere);
+        return { box, sphere };
+    }
+
     function applyFrameToBounds(boundsOrSphere, options = {}) {
         const { animate = false } = options;
         const frame = frameTarget(boundsOrSphere, { apply: false });
@@ -388,6 +426,19 @@ export function createViewer(container, initialViewSettings = {}) {
         ghostMesh = null;
     }
 
+    function disposeSelectedMesh() {
+        if (selectedMesh && selectedMesh.parent) {
+            selectedMesh.parent.remove(selectedMesh);
+        }
+        if (selectedMesh) {
+            selectedMesh.geometry.dispose();
+            if (selectedMesh.material) {
+                selectedMesh.material.dispose();
+            }
+        }
+        selectedMesh = null;
+    }
+
     function disposeSelectionOutline() {
         if (selectionOutline && selectionOutline.parent) {
             selectionOutline.parent.remove(selectionOutline);
@@ -402,11 +453,40 @@ export function createViewer(container, initialViewSettings = {}) {
         selectionOutlineMaterial = null;
     }
 
+    function disposeComponentOutlines() {
+        if (componentOutline && componentOutline.parent) {
+            componentOutline.parent.remove(componentOutline);
+        }
+        if (componentOutline) {
+            componentOutline.geometry.dispose();
+        }
+        if (componentOutlineMaterial) {
+            componentOutlineMaterial.dispose();
+        }
+        componentOutline = null;
+        componentOutlineMaterial = null;
+    }
+
+    function disposeGlobalOutline() {
+        if (globalOutline && globalOutline.parent) {
+            globalOutline.parent.remove(globalOutline);
+        }
+        if (globalOutline) {
+            globalOutline.geometry.dispose();
+        }
+        if (globalOutlineMaterial) {
+            globalOutlineMaterial.dispose();
+        }
+        globalOutline = null;
+        globalOutlineMaterial = null;
+    }
+
     function rebuildComponentOverlay(displayGeom, faceList) {
         // Only show overlays when full mesh is displayed (no face subset)
         disposeOverlay();
         if (!currentMesh || !displayGeom || faceList) return;
         if (!Array.isArray(componentOverlays) || !componentOverlays.length) return;
+        if (viewSettings.componentMode) return;
         const indexAttr = displayGeom.getIndex();
         const posAttr = displayGeom.getAttribute("position");
         if (!indexAttr || !posAttr) return;
@@ -511,9 +591,9 @@ export function createViewer(container, initialViewSettings = {}) {
         pivot.add(ghostMesh);
     }
 
-    function rebuildSelectionOutline(selectedFaceList, displayGeom) {
+    function rebuildSelectionOutline(selectedFaceList, displayGeom, targetMesh = currentMesh) {
         disposeSelectionOutline();
-        if (!currentMesh || !selectedFaceList || !selectedFaceList.length) return;
+        if (!targetMesh || !selectedFaceList || !selectedFaceList.length) return;
         if (!displayGeom) return;
 
         const edgesGeom = new THREE.EdgesGeometry(displayGeom, 0.1);
@@ -536,7 +616,173 @@ export function createViewer(container, initialViewSettings = {}) {
 
         selectionOutline = new LineSegments2(lineGeom, selectionOutlineMaterial);
         selectionOutline.renderOrder = 12;
-        currentMesh.add(selectionOutline);
+        targetMesh.add(selectionOutline);
+    }
+
+    function rebuildComponentOutlines() {
+        disposeComponentOutlines();
+        if (!viewSettings.componentMode) return;
+        if (!currentMesh) return;
+        if (!Array.isArray(componentOverlays) || !componentOverlays.length) return;
+        if (!basePositions || !baseIndices || !baseFaceCount) return;
+
+        const faceToComponent = new Int32Array(baseFaceCount).fill(-1);
+        for (const comp of componentOverlays) {
+            const faces = Array.isArray(comp.faceIndices) ? comp.faceIndices : [];
+            for (const faceIndex of faces) {
+                if (faceIndex < 0 || faceIndex >= baseFaceCount) continue;
+                faceToComponent[faceIndex] = comp.componentIndex;
+            }
+        }
+
+        const edgeMap = new Map();
+        for (let faceIndex = 0; faceIndex < baseFaceCount; faceIndex++) {
+            const i0 = baseIndices[faceIndex * 3 + 0];
+            const i1 = baseIndices[faceIndex * 3 + 1];
+            const i2 = baseIndices[faceIndex * 3 + 2];
+            const edges = [
+                [i0, i1],
+                [i1, i2],
+                [i2, i0],
+            ];
+            for (const [a, b] of edges) {
+                const key = a < b ? `${a}_${b}` : `${b}_${a}`;
+                const arr = edgeMap.get(key);
+                if (arr) {
+                    if (arr.length < 2) arr.push(faceIndex);
+                } else {
+                    edgeMap.set(key, [faceIndex]);
+                }
+            }
+        }
+
+        const boundaryPositions = [];
+        const boundaryColors = [];
+        for (const [key, faces] of edgeMap.entries()) {
+            if (!faces.length || faces.length > 2) continue;
+            const faceA = faces[0];
+            const faceB = faces.length === 2 ? faces[1] : -1;
+            const compA = faceToComponent[faceA];
+            const compB = faceB >= 0 ? faceToComponent[faceB] : -1;
+
+            const isBoundary = faces.length === 1;
+            const isBetweenComponents = faces.length === 2 && compA !== compB;
+            if (!isBoundary && !isBetweenComponents) continue;
+            if (compA < 0) continue;
+
+            const [aStr, bStr] = key.split("_");
+            const a = Number(aStr);
+            const b = Number(bStr);
+            if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+
+            const compColor = new THREE.Color(getComponentColor(compA));
+
+            boundaryPositions.push(
+                basePositions[a * 3 + 0], basePositions[a * 3 + 1], basePositions[a * 3 + 2],
+                basePositions[b * 3 + 0], basePositions[b * 3 + 1], basePositions[b * 3 + 2]
+            );
+            boundaryColors.push(
+                compColor.r, compColor.g, compColor.b,
+                compColor.r, compColor.g, compColor.b
+            );
+        }
+
+        if (!boundaryPositions.length) return;
+
+        const lineGeom = new LineSegmentsGeometry();
+        lineGeom.setPositions(new Float32Array(boundaryPositions));
+        lineGeom.setColors(new Float32Array(boundaryColors));
+
+        componentOutlineMaterial = new LineMaterial({
+            vertexColors: true,
+            linewidth: Math.max(1.8, getEdgeLineWidthPx() * 1.2),
+            transparent: true,
+            opacity: 0.9,
+            depthTest: true,
+            polygonOffset: true,
+            polygonOffsetFactor: -1,
+            polygonOffsetUnits: -1,
+        });
+        renderer.getDrawingBufferSize(drawBufferSize);
+        componentOutlineMaterial.resolution.set(drawBufferSize.x, drawBufferSize.y);
+
+        componentOutline = new LineSegments2(lineGeom, componentOutlineMaterial);
+        componentOutline.renderOrder = 11;
+        componentOutline.visible = viewSettings.componentMode;
+        currentMesh.add(componentOutline);
+    }
+
+    function outlineAnchor() {
+        return selectedMesh || currentMesh;
+    }
+
+    function syncGlobalOutlineTransform() {
+        if (!globalOutline) return;
+        const anchor = outlineAnchor();
+        if (!anchor) return;
+        globalOutline.position.copy(anchor.position);
+        globalOutline.rotation.copy(anchor.rotation);
+        globalOutline.scale.copy(anchor.scale);
+    }
+
+    function updateGlobalOutlineVisibility() {
+        if (!globalOutline) return;
+        const anchor = outlineAnchor();
+        const anchorVisible = !!anchor && anchor.visible !== false;
+        globalOutline.visible = !!viewSettings.outlineEnabled && anchorVisible;
+    }
+
+    function rebuildGlobalOutline() {
+        disposeGlobalOutline();
+        if (!viewSettings.outlineEnabled) return;
+        const anchor = outlineAnchor();
+        if (!anchor || !anchor.geometry) return;
+
+        const threshold = Number.isFinite(viewSettings.edgeThreshold) ? viewSettings.edgeThreshold : 12;
+        const edgesGeom = new THREE.EdgesGeometry(anchor.geometry, threshold);
+
+        const posAttr = edgesGeom.getAttribute("position");
+        if (!posAttr || !posAttr.array || !posAttr.array.length) {
+            edgesGeom.dispose();
+            return;
+        }
+        const lineGeom = new LineSegmentsGeometry();
+        lineGeom.setPositions(posAttr.array);
+        edgesGeom.dispose();
+
+        globalOutlineMaterial = new LineMaterial({
+            color: 0x111111,
+            linewidth: Math.max(1.5, getEdgeLineWidthPx()),
+            transparent: true,
+            opacity: 0.9,
+            depthTest: true,
+        });
+        renderer.getDrawingBufferSize(drawBufferSize);
+        globalOutlineMaterial.resolution.set(drawBufferSize.x, drawBufferSize.y);
+
+        globalOutline = new LineSegments2(lineGeom, globalOutlineMaterial);
+        globalOutline.renderOrder = 9;
+        pivot.add(globalOutline);
+        syncGlobalOutlineTransform();
+        updateGlobalOutlineVisibility();
+    }
+
+    function hideBaseMeshesAndLines() {
+        if (currentMesh) currentMesh.visible = false;
+        if (currentEdges) currentEdges.visible = false;
+        if (componentOutline) componentOutline.visible = false;
+        updateGlobalOutlineVisibility();
+        disposeOverlay();
+    }
+
+    function showBaseMeshesAndLines() {
+        if (currentMesh) currentMesh.visible = true;
+        if (currentEdges) currentEdges.visible = !viewSettings.componentMode && viewSettings.edgeMode !== "off";
+        if (componentOutline) componentOutline.visible = viewSettings.componentMode;
+        updateGlobalOutlineVisibility();
+        if (currentMesh?.geometry && !viewSettings.componentMode) {
+            rebuildComponentOverlay(currentMesh.geometry, lastFaceList);
+        }
     }
 
     function fitHelpersAndCamera(geometry) {
@@ -624,10 +870,12 @@ export function createViewer(container, initialViewSettings = {}) {
         gridHelper.position.y = floorY;
         ground.position.y = floorY;
         rebuildEdges();
+        rebuildGlobalOutline();
         applyMaterialSettings();
         updateSceneScale(displayGeom);
         updateShadowCameraBounds();
         rebuildComponentOverlay(displayGeom, faceList);
+        rebuildComponentOutlines();
 
         faceIndexMap = faceList && faceList.length ? faceMap : null;
         vertexIndexMap = faceList && faceList.length ? vMap : null;
@@ -638,6 +886,39 @@ export function createViewer(container, initialViewSettings = {}) {
             // keep helpers roughly scaled to new geometry without moving camera/target
             updateHelperScales(displayGeom);
         }
+    }
+
+    function refreshDisplayGeometry(faceList = lastFaceList) {
+        if (!basePositions || !baseIndices || !currentMesh) return;
+        const faceListSafe = faceList && faceList.length ? faceList.slice() : null;
+        const { sourceGeom, displayGeom, faceMap, vertexMap: vMap } = buildGeometryFromFaceList(faceListSafe);
+
+        if (sourceGeometry) {
+            sourceGeometry.dispose();
+            sourceGeometry = null;
+        }
+        sourceGeometry = sourceGeom;
+
+        const prevPosition = currentMesh.position.clone();
+        const prevRotation = currentMesh.rotation.clone();
+        const prevScale = currentMesh.scale.clone();
+
+        currentMesh.geometry.dispose();
+        currentMesh.geometry = displayGeom;
+        currentMesh.position.copy(prevPosition);
+        currentMesh.rotation.copy(prevRotation);
+        currentMesh.scale.copy(prevScale);
+
+        rebuildEdges();
+        rebuildGlobalOutline();
+        applyMaterialSettings();
+        updateSceneScale(displayGeom);
+        updateShadowCameraBounds();
+        rebuildComponentOverlay(displayGeom, faceListSafe);
+        rebuildComponentOutlines();
+
+        faceIndexMap = faceListSafe && faceListSafe.length ? faceMap : null;
+        vertexIndexMap = faceListSafe && faceListSafe.length ? vMap : null;
     }
 
     function applyMaterialSettings() {
@@ -657,7 +938,10 @@ export function createViewer(container, initialViewSettings = {}) {
         disposeOverlay();
         componentOverlays = [];
         disposeGhostMesh();
+        disposeSelectedMesh();
         disposeSelectionOutline();
+        disposeComponentOutlines();
+        disposeGlobalOutline();
 
         // positions: flat float array length = vertices.length * 3
         basePositions = new Float32Array(vertices.length * 3);
@@ -684,30 +968,78 @@ export function createViewer(container, initialViewSettings = {}) {
         if (currentMesh && currentMesh.geometry) {
             rebuildComponentOverlay(currentMesh.geometry, lastFaceList);
         }
+        rebuildComponentOutlines();
+    }
+
+    function focusComponentFaces(faceIndices) {
+        if (!basePositions || !baseIndices) return;
+        if (!faceIndices || !faceIndices.length) return;
+
+        hideBaseMeshesAndLines();
+        disposeGhostMesh();
+        disposeSelectedMesh();
+        disposeSelectionOutline();
+        disposeOverlay();
+
+        rebuildGhostMesh(faceIndices);
+        const { sourceGeom, displayGeom } = buildGeometryFromFaceList(faceIndices);
+        const material = new THREE.MeshStandardMaterial({
+            metalness: 0.0,
+            roughness: 0.8,
+            color: baseMeshColor,
+        });
+        selectedMesh = new THREE.Mesh(displayGeom, material);
+        selectedMesh.castShadow = true;
+        selectedMesh.receiveShadow = true;
+        if (currentMesh) {
+            selectedMesh.position.copy(currentMesh.position);
+            selectedMesh.rotation.copy(currentMesh.rotation);
+            selectedMesh.scale.copy(currentMesh.scale);
+        }
+        pivot.add(selectedMesh);
+        syncGlobalOutlineTransform();
+        updateGlobalOutlineVisibility();
+
+        rebuildSelectionOutline(faceIndices, displayGeom, selectedMesh);
+        sourceGeom.dispose();
+    }
+
+    function clearComponentFocus() {
+        disposeGhostMesh();
+        disposeSelectionOutline();
+        disposeSelectedMesh();
+        showBaseMeshesAndLines();
+        rebuildComponentOutlines();
+        rebuildGlobalOutline();
+        rebuildEdges();
     }
 
     function showComponent(faceIndices, options = {}) {
         const { refitCamera = true } = options;
         if (!basePositions || !baseIndices) return;
-        applyGeometry(faceIndices, refitCamera);
-        // Hide overlays when isolating a component subset and show selection visuals
         if (faceIndices && faceIndices.length) {
-            disposeOverlay();
-            rebuildGhostMesh(faceIndices);
-            rebuildSelectionOutline(faceIndices, currentMesh.geometry);
+            focusComponentFaces(faceIndices);
+            const bounds = getFaceBounds(faceIndices);
+            if (refitCamera && bounds && (bounds.box || bounds.sphere)) {
+                applyFrameToBounds(bounds.sphere || bounds.box, { animate: true });
+            }
         } else {
-            disposeGhostMesh();
-            disposeSelectionOutline();
+            clearComponentFocus();
         }
     }
 
     function showAllComponents(options = {}) {
         const { refitCamera = true } = options;
-        if (!basePositions || !baseIndices) return;
-        applyGeometry(null, refitCamera);
-        setIdentityMaps();
-        disposeGhostMesh();
-        disposeSelectionOutline();
+        clearComponentFocus();
+        if (refitCamera && currentMesh?.geometry) {
+            const bounds = getWorldBounds(currentMesh.geometry);
+            if (bounds) {
+                applyFrameToBounds(bounds.sphere || bounds.box, { animate: true });
+            }
+        }
+        rebuildComponentOutlines();
+        rebuildGlobalOutline();
+        rebuildEdges();
     }
 
     function onResize() {
@@ -720,9 +1052,7 @@ export function createViewer(container, initialViewSettings = {}) {
         fxaaPass.material.uniforms["resolution"].value.set(1 / (w * ratio), 1 / (h * ratio));
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
-        if (highlightLineMaterial || edgeLineMaterial) {
-            renderer.getDrawingBufferSize(drawBufferSize);
-        }
+        renderer.getDrawingBufferSize(drawBufferSize);
         if (highlightLineMaterial) {
             highlightLineMaterial.resolution.set(drawBufferSize.x, drawBufferSize.y);
         }
@@ -731,6 +1061,12 @@ export function createViewer(container, initialViewSettings = {}) {
         }
         if (selectionOutlineMaterial) {
             selectionOutlineMaterial.resolution.set(drawBufferSize.x, drawBufferSize.y);
+        }
+        if (componentOutlineMaterial) {
+            componentOutlineMaterial.resolution.set(drawBufferSize.x, drawBufferSize.y);
+        }
+        if (globalOutlineMaterial) {
+            globalOutlineMaterial.resolution.set(drawBufferSize.x, drawBufferSize.y);
         }
     }
     window.addEventListener("resize", onResize);
@@ -1054,6 +1390,8 @@ export function createViewer(container, initialViewSettings = {}) {
         const floorY = currentMesh.position.y;
         gridHelper.position.y = floorY;
         ground.position.y = floorY;
+        syncGlobalOutlineTransform();
+        updateGlobalOutlineVisibility();
 
         fitHelpersAndCamera(currentMesh.geometry);
     }
@@ -1144,10 +1482,28 @@ export function createViewer(container, initialViewSettings = {}) {
         }
 
         if (partial.cadShading !== undefined) {
-            applyGeometry(lastFaceList, false);
+            refreshDisplayGeometry(lastFaceList);
         } else {
             rebuildEdges();
             applyMaterialSettings();
+            if (partial.edgeThreshold !== undefined) {
+                rebuildGlobalOutline();
+            }
+        }
+
+        if (partial.componentMode !== undefined) {
+            disposeOverlay();
+            if (currentMesh?.geometry && !viewSettings.componentMode) {
+                rebuildComponentOverlay(currentMesh.geometry, lastFaceList);
+            }
+            rebuildComponentOutlines();
+            updateGlobalOutlineVisibility();
+        }
+
+        if (partial.outlineEnabled !== undefined) {
+            rebuildGlobalOutline();
+        } else {
+            updateGlobalOutlineVisibility();
         }
     }
 
@@ -1170,6 +1526,8 @@ export function createViewer(container, initialViewSettings = {}) {
             axes: true,
             exposure: 1.9,
             ssao: false,
+            outlineEnabled: true,
+            componentMode: false,
         });
     }
 
@@ -1192,6 +1550,8 @@ export function createViewer(container, initialViewSettings = {}) {
         frameView,
         getCurrentBounds,
         getMeshOffset,
-        setComponentOverlays
+        setComponentOverlays,
+        focusComponentFaces,
+        clearComponentFocus
     };
 }

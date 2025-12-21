@@ -330,8 +330,10 @@ function syncViewControls() {
     dom.wireframeToggle.classList.toggle("active", v.wireframe);
     dom.gridToggle.classList.toggle("active", v.grid);
     dom.axesToggle.classList.toggle("active", v.axes);
+    dom.outlineToggle.classList.toggle("active", !!v.outlineEnabled);
     dom.ssaoToggle.checked = !!v.ssao;
     dom.exposureSlider.value = v.exposure;
+    if (dom.componentModeToggle) dom.componentModeToggle.checked = !!v.componentMode;
     const iconClass = state.highlightEnabled ? "bi-lightbulb-fill" : "bi-lightbulb";
     dom.highlightToggleBtn.innerHTML = `<i class="bi ${iconClass}"></i>`;
     dom.highlightToggleBtn.title = state.highlightEnabled ? "Hide highlights" : "Show highlights";
@@ -763,6 +765,14 @@ dom.wireframeToggle.addEventListener("click", () => {
     saveViewSettings();
 });
 
+dom.outlineToggle.addEventListener("click", () => {
+    const next = !viewer.getViewSettings().outlineEnabled;
+    viewer.setViewSettings({ outlineEnabled: next });
+    dom.outlineToggle.classList.toggle("active", next);
+    renderSelection();
+    saveViewSettings();
+});
+
 dom.gridToggle.addEventListener("click", () => {
     const next = !viewer.getViewSettings().grid;
     viewer.setViewSettings({ grid: next });
@@ -784,6 +794,14 @@ dom.ssaoToggle.addEventListener("change", () => {
     renderSelection();
     saveViewSettings();
 });
+
+if (dom.componentModeToggle) {
+    dom.componentModeToggle.addEventListener("change", () => {
+        viewer.setViewSettings({ componentMode: dom.componentModeToggle.checked });
+        renderSelection();
+        saveViewSettings();
+    });
+}
 
 dom.exposureSlider.addEventListener("input", () => {
     viewer.setViewSettings({ exposure: Number(dom.exposureSlider.value) });

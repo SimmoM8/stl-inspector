@@ -28,6 +28,8 @@ export const DEFAULT_VIEW_SETTINGS = {
     axes: true,
     exposure: 1.9,
     ssao: false,
+    outlineEnabled: true,
+    componentMode: false,
 };
 
 // If you want later: app-level constants (colors, limits, etc.)
