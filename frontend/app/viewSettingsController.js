@@ -1,5 +1,7 @@
 // Manage viewer view settings: persistence and syncing UI controls.
+// Create controller with viewer/dom/state to save, load, and reflect settings.
 function createViewSettingsController({ viewer, dom, state }) {
+    // Load settings from localStorage into viewer and sync controls.
     function loadViewSettings() {
         const saved = localStorage.getItem("stl-view-settings");
         if (saved) {
@@ -13,11 +15,13 @@ function createViewSettingsController({ viewer, dom, state }) {
         syncViewControls();
     }
 
+    // Persist current viewer settings to localStorage.
     function saveViewSettings() {
         const current = viewer.getViewSettings();
         localStorage.setItem("stl-view-settings", JSON.stringify(current));
     }
 
+    // Mirror viewer settings into UI toggles/inputs.
     function syncViewControls() {
         const v = viewer.getViewSettings();
         dom.edgeThresholdInput.value = v.edgeThreshold;

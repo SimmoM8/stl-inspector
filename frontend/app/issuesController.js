@@ -1,4 +1,5 @@
 // Manage issue selection, highlighting, filtering, and detail rendering.
+// Create controller bound to viewer/state/dom; call setOnChange for UI refresh hooks.
 function createIssuesController({
     state,
     viewer,
@@ -13,20 +14,24 @@ function createIssuesController({
 }) {
     let notifyChange = typeof onChange === "function" ? onChange : () => { };
 
+    // Replace post-change callback for UI refresh.
     function setOnChange(fn) {
         notifyChange = typeof fn === "function" ? fn : () => { };
     }
 
+    // Current selected issue index or -1.
     function getSelectedIssueIndex() {
         const sel = selectionStore.getSelection();
         return sel?.type === "issue" ? sel.id ?? -1 : -1;
     }
 
+    // Active issue object from state or null.
     function getSelectedIssue() {
         const idx = getSelectedIssueIndex();
         return idx >= 0 ? state.issues[idx] : null;
     }
 
+    // Normalize issue to kind/items for highlighting (faces/edges/none).
     function getIssueItems(issue) {
         const faces = Array.isArray(issue?.faces) ? issue.faces : [];
         const edges = Array.isArray(issue?.edges) ? issue.edges : [];
@@ -35,6 +40,7 @@ function createIssuesController({
         return { kind: "none", items: [] };
     }
 
+    // Check filter + search constraints for an issue row.
     function issueMatchesFilters(issue) {
         if (!issue) return false;
         const filter = (state.issueFilter || "all").toLowerCase();
@@ -47,6 +53,7 @@ function createIssuesController({
         return typeText.includes(search) || messageText.includes(search);
     }
 
+    // Drive viewer highlights for an issue in "all" or "step" modes.
     function highlightIssue(issue, mode, itemIndex) {
         const { kind, items } = getIssueItems(issue);
         const total = items.length;
@@ -62,6 +69,7 @@ function createIssuesController({
         viewer.showIssueAll(issue);
     }
 
+    // Render detail panel + highlight state based on current selection.
     function renderSelection() {
         const selection = selectionStore.getSelection();
         const issue = getSelectedIssue();
@@ -144,6 +152,7 @@ function createIssuesController({
         updateToolbarVisibility(state, dom, selection);
     }
 
+    // Activate an issue by index, reset stepping, and focus viewer bounds.
     function selectIssue(idx) {
         const issue = state.issues[idx];
         viewer.showAllComponents({ refitCamera: false });
@@ -155,6 +164,7 @@ function createIssuesController({
         notifyChange();
     }
 
+    // Clear issue/component selection and highlights.
     function clearSelection() {
         viewer.clearHighlights();
         state.itemIndex = 0;
@@ -166,6 +176,7 @@ function createIssuesController({
         notifyChange();
     }
 
+    // Move forward/backward through items of selected issue.
     function moveItem(delta) {
         state.mode = "step";
         const issue = getSelectedIssue();
@@ -181,6 +192,7 @@ function createIssuesController({
     let previewTimeout = null;
     let restoreTimeout = null;
 
+    // Preview highlight on hover without selecting.
     function previewIssue(index) {
         if (previewTimeout) clearTimeout(previewTimeout);
         if (restoreTimeout) {
@@ -196,6 +208,7 @@ function createIssuesController({
         }, 80);
     }
 
+    // Restore highlight to selected issue after hover preview.
     function restoreSelectionHighlight() {
         if (previewTimeout) {
             clearTimeout(previewTimeout);
@@ -217,6 +230,7 @@ function createIssuesController({
         }, 60);
     }
 
+    // Toggle collapse state of severity groups and re-render list.
     function toggleGroup(sev) {
         state.collapsedGroups[sev] = !state.collapsedGroups[sev];
         renderIssuesGrouped(

@@ -41,6 +41,7 @@ const viewSettingsController = createViewSettingsController({ viewer, dom, state
 const layoutController = createLayoutController({ dom, state });
 const statusController = createStatusController({ dom, state, issuesController });
 
+// Render issue buttons grouped by severity with hover/select handlers.
 function renderIssueList() {
     renderIssuesGrouped(
         state,
@@ -53,6 +54,7 @@ function renderIssueList() {
     );
 }
 
+// Re-render UI pieces to reflect selection, filters, and summary.
 function refreshUI() {
     const selection = selectionStore.getSelection();
     issuesController.renderSelection();

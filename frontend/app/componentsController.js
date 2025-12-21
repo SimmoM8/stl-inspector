@@ -1,22 +1,27 @@
 // Handle mesh component data: computing groups, ghosting, overlays, and selection.
+// Create a controller bound to state/viewer/selectionStore; call setOnChange to hook UI refresh.
 function createComponentsController({ state, viewer, selectionStore, onChange = () => { } }) {
     let notifyChange = typeof onChange === "function" ? onChange : () => { };
 
+    // Replace the change callback used to refresh UI after mutations.
     function setOnChange(fn) {
         notifyChange = typeof fn === "function" ? fn : () => { };
     }
 
+    // Ensure ghosted set exists before reads/writes.
     function ensureComponentVisibility() {
         if (!state.componentVisibility || !(state.componentVisibility.ghosted instanceof Set)) {
             state.componentVisibility = { ghosted: new Set() };
         }
     }
 
+    // Check whether a component is currently ghosted.
     function isComponentGhosted(componentIndex) {
         ensureComponentVisibility();
         return state.componentVisibility.ghosted.has(componentIndex);
     }
 
+    // Build overlay payload sent to viewer with ghost flags.
     function buildComponentOverlayData() {
         ensureComponentVisibility();
         return state.components.map((comp) => ({
@@ -25,10 +30,12 @@ function createComponentsController({ state, viewer, selectionStore, onChange = 
         }));
     }
 
+    // Push overlay data into viewer (colors/ghosting).
     function updateComponentOverlays() {
         viewer.setComponentOverlays(buildComponentOverlayData());
     }
 
+    // Ghost/un-ghost a component index and notify listeners.
     function setComponentGhosted(componentIndex, ghosted) {
         ensureComponentVisibility();
         if (ghosted) {
@@ -40,6 +47,7 @@ function createComponentsController({ state, viewer, selectionStore, onChange = 
         notifyChange();
     }
 
+    // Clear all ghost flags and refresh overlays/UI.
     function clearComponentGhosting() {
         ensureComponentVisibility();
         state.componentVisibility.ghosted.clear();
@@ -47,6 +55,7 @@ function createComponentsController({ state, viewer, selectionStore, onChange = 
         notifyChange();
     }
 
+    // Compute connected components from mesh face list; returns array with face/vertex counts.
     function computeComponents(meshData) {
         const faces = Array.isArray(meshData.faces) ? meshData.faces : [];
         if (!faces.length) return [];
@@ -114,6 +123,7 @@ function createComponentsController({ state, viewer, selectionStore, onChange = 
         return components;
     }
 
+    // Isolate a component (or clear selection with null) and refit viewer bounds.
     function applyComponentSelection(componentIndex) {
         const hasSelection = componentIndex !== null && componentIndex !== undefined;
         const comp = hasSelection ? selectionStore.selectComponent(componentIndex) : null;
@@ -144,6 +154,7 @@ function createComponentsController({ state, viewer, selectionStore, onChange = 
         notifyChange();
     }
 
+    // Find and isolate the largest component by face count.
     function selectLargestComponent() {
         if (!state.components.length) return;
         const largest = state.components.reduce((best, comp) =>

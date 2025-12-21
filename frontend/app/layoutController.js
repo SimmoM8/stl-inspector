@@ -1,17 +1,21 @@
 // Handle layout toggles such as panels and mobile drawer state.
+// Create layout controller bound to DOM; exposes mobile helpers and panel switching.
 function createLayoutController({ dom, state }) {
     const mobileQuery = window.matchMedia("(max-width: 900px)");
 
+    // True when viewport is under mobile breakpoint.
     function isMobile() {
         return mobileQuery.matches;
     }
 
+    // Disable drawer toggle on desktop to prevent accidental clicks.
     function syncDrawerToggleState() {
         if (dom.drawerToggleBtn) {
             dom.drawerToggleBtn.disabled = !isMobile();
         }
     }
 
+    // Open/close the context drawer; auto-close when on desktop.
     function setDrawerOpen(open) {
         if (!dom.contextPanel || !dom.drawerBackdrop) return;
         if (!isMobile()) {
@@ -27,6 +31,7 @@ function createLayoutController({ dom, state }) {
         syncDrawerToggleState();
     }
 
+    // Switch active panel by name and update rail button states.
     function setActivePanel(panelName) {
         state.activePanel = panelName;
         dom.panels.forEach((p) => {

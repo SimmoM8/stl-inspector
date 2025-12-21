@@ -1,7 +1,9 @@
 // Manage user-facing status messaging and mini status indicator text.
+// Create status controller; call setStatus for bubble and updateMiniStatus for footer.
 function createStatusController({ dom, state, issuesController }) {
     let statusTimeout = null;
 
+    // Show a temporary status bubble that fades after 5s.
     function setStatus(message) {
         if (dom.statusBubble) {
             dom.statusBubble.textContent = message || "";
@@ -16,6 +18,7 @@ function createStatusController({ dom, state, issuesController }) {
         }
     }
 
+    // Refresh compact footer status for highlights/mode/item position.
     function updateMiniStatus() {
         if (!dom.miniStatus) return;
         if (!state.summary) {
