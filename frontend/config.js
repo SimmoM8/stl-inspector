@@ -1,5 +1,6 @@
 // config.js
 
+// Build the API endpoint for analysis; use in fetch calls to backend.
 export function getAnalyzeUrl() {
     // Vite dev server: use proxy relative path to avoid CORS.
     const isViteDev = typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV;

@@ -1,5 +1,6 @@
 import { getComponentColor } from "../components/colors.js";
 
+// Render grouped issue buttons filtered by severity/search and wire up events.
 function renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup, previewIssue, restoreSelectionHighlight) {
     dom.issuesEl.innerHTML = "";
     issueButtons.length = 0;
@@ -18,6 +19,7 @@ function renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup,
         groups[sev].push({ issue, idx });
     });
 
+    // Build each severity group section with buttons and hover handlers.
     function createGroup(sevLabel, items) {
         if (filter !== "all" && filter !== sevLabel.toLowerCase()) return;
         const sev = sevLabel.toLowerCase();
@@ -66,6 +68,7 @@ function renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup,
     createGroup("Info", groups.info);
 }
 
+// Render the components list with isolate/ghost controls and selection highlighting.
 function renderComponentsList(state, dom, selection, applyComponentSelection, toggleGhost) {
     dom.componentsList.innerHTML = "";
     if (!state.components.length) return;
@@ -123,6 +126,7 @@ function renderComponentsList(state, dom, selection, applyComponentSelection, to
     });
 }
 
+// Render issue details panel; disables controls when no issue is selected.
 function renderDetails(dom, issue, meta) {
     if (!issue) {
         dom.issueTitle.textContent = "No issue selected";
@@ -151,6 +155,7 @@ function renderDetails(dom, issue, meta) {
     dom.showAllBtn.disabled = false;
 }
 
+// Set active class on issue buttons to mirror current selection.
 function updateActiveButtons(selection, issueButtons) {
     issueButtons.forEach((info) => {
         const isSelected = selection?.type === "issue" && selection.id === info.index;
@@ -158,6 +163,7 @@ function updateActiveButtons(selection, issueButtons) {
     });
 }
 
+// Fill the summary stats block with mesh analysis data.
 function updateSummary(dom, summary) {
     if (summary) {
         dom.summaryWatertight.textContent =
@@ -168,6 +174,7 @@ function updateSummary(dom, summary) {
     }
 }
 
+// Show/hide toolbars and buttons based on what the user has selected.
 function updateToolbarVisibility(state, dom, selection) {
     const hasIssueSelection = selection?.type === "issue";
     const hasComponentSelection = selection?.type === "component";

@@ -17,6 +17,7 @@ import { LineSegments2 } from "https://unpkg.com/three@0.160.0/examples/jsm/line
 import { LineSegmentsGeometry } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineSegmentsGeometry.js";
 import { getComponentColor } from "./components/colors.js";
 
+// Construct a Three.js viewer with highlighting utilities and view controls.
 export function createViewer(container, initialViewSettings = {}) {
     let currentMesh = null;
     let currentEdges = null;
@@ -167,11 +168,13 @@ export function createViewer(container, initialViewSettings = {}) {
     // Optional: constrain zoom distances once mesh is loaded
     // we’ll set min/max in setMeshFromApi after we know the bounding sphere
 
+    // Clear face/vertex remap tables when using full geometry.
     function setIdentityMaps() {
         faceIndexMap = null;
         vertexIndexMap = null;
     }
 
+    // Build a compact geometry from a subset of faces; keeps maps for remapping.
     function buildGeometryFromFaceList(faceList) {
         const useFaces = faceList && faceList.length ? faceList : [...Array(baseFaceCount).keys()];
         const positions = [];
@@ -231,15 +234,17 @@ export function createViewer(container, initialViewSettings = {}) {
         return { sourceGeom, displayGeom, faceMap: fMap, vertexMap: vMap };
     }
 
-    // Scale
+    // Safe guard for sceneScale to avoid NaNs.
     function getSafeScale() {
         return Number.isFinite(sceneScale) && sceneScale > 0 ? sceneScale : 1;
     }
 
+    // Get current mesh offset used when framing bounds.
     function getMeshOffset() {
         return currentMesh ? currentMesh.position.clone() : new THREE.Vector3();
     }
 
+    // Compute world-space bounds for a geometry, respecting mesh offset.
     function getWorldBounds(geometry = currentMesh?.geometry) {
         if (!geometry) return null;
         if (!geometry.boundingBox) geometry.computeBoundingBox();
@@ -253,6 +258,7 @@ export function createViewer(container, initialViewSettings = {}) {
         return { box, sphere };
     }
 
+    // Build bounds for a set of face indices from the base geometry.
     function getFaceBounds(faceIndices) {
         if (!currentMesh || !Array.isArray(faceIndices) || !faceIndices.length) return null;
         if (!basePositions || !baseIndices) return null;
@@ -283,6 +289,7 @@ export function createViewer(container, initialViewSettings = {}) {
         return { box, sphere };
     }
 
+    // Frame the camera/controls to the provided bounds; optional animation.
     function applyFrameToBounds(boundsOrSphere, options = {}) {
         const { animate = false } = options;
         const frame = frameTarget(boundsOrSphere, { apply: false });
@@ -310,27 +317,32 @@ export function createViewer(container, initialViewSettings = {}) {
         return frame;
     }
 
+    // Update ambient occlusion kernel size based on scene scale.
     function updateSaoKernelRadius() {
         const kernelRadius = THREE.MathUtils.clamp(getSafeScale() * 0.02, 2, 24);
         saoPass.params.saoKernelRadius = kernelRadius;
     }
 
+    // Convert desired edge width to pixel width that scales with model size.
     function getEdgeLineWidthPx() {
         const width = 1.8 / Math.sqrt(getSafeScale());
         return THREE.MathUtils.clamp(width, 1.2, 2.2);
     }
 
+    // Convert highlight edge width to a scale-aware pixel width.
     function getHighlightLineWidthPx() {
         const width = 8 / Math.sqrt(getSafeScale());
         return THREE.MathUtils.clamp(width, 6, 10);
     }
 
+    // Radius helper for camera constraints; defaults to 1 if missing.
     function getMeshRadius() {
         if (!currentMesh || !currentMesh.geometry || !currentMesh.geometry.boundingSphere) return 1;
         const r = currentMesh.geometry.boundingSphere.radius;
         return Number.isFinite(r) && r > 0 ? r : 1;
     }
 
+    // Track overall scene scale so helpers/shadows scale correctly.
     function updateSceneScale(geometry) {
         if (!geometry) {
             sceneScale = 1;
@@ -354,6 +366,7 @@ export function createViewer(container, initialViewSettings = {}) {
     }
 
     // Shadows
+    // Resize shadow camera bounds based on model scale to avoid clipping.
     function updateShadowCameraBounds() {
         if (!keyLight.shadow || !keyLight.shadow.camera) return;
         const safeScale = getSafeScale();
@@ -371,6 +384,7 @@ export function createViewer(container, initialViewSettings = {}) {
     }
 
     // Helpers
+    // Choose helper radius based on geometry bounds or fallback scale.
     function getHelperRadius(geometry) {
         const fallback = getSafeScale() * 0.5;
         if (!geometry || !geometry.boundingSphere) return fallback;
@@ -378,6 +392,7 @@ export function createViewer(container, initialViewSettings = {}) {
         return Number.isFinite(r) && r > 0 ? r : fallback;
     }
 
+    // Rebuild the grid helper to match current scale/visibility.
     function rebuildGridHelper(size, divisions) {
         if (gridHelper) {
             scene.remove(gridHelper);
@@ -394,6 +409,7 @@ export function createViewer(container, initialViewSettings = {}) {
         scene.add(gridHelper);
     }
 
+    // Resize helpers (axes, grid, ground) after geometry changes; call post-mesh load.
     function updateHelperScales(geometry) {
         const r = getHelperRadius(geometry);
         axesHelper.scale.setScalar(r);
@@ -404,6 +420,7 @@ export function createViewer(container, initialViewSettings = {}) {
         ground.position.y = 0;
     }
 
+    // Remove component overlay mesh safely.
     function disposeOverlay() {
         if (overlayMesh && overlayMesh.parent) {
             overlayMesh.parent.remove(overlayMesh);
@@ -415,6 +432,7 @@ export function createViewer(container, initialViewSettings = {}) {
         overlayMesh = null;
     }
 
+    // Remove ghost mesh that hides non-selected faces.
     function disposeGhostMesh() {
         if (ghostMesh && ghostMesh.parent) {
             ghostMesh.parent.remove(ghostMesh);
@@ -426,6 +444,7 @@ export function createViewer(container, initialViewSettings = {}) {
         ghostMesh = null;
     }
 
+    // Remove isolated selection mesh copy.
     function disposeSelectedMesh() {
         if (selectedMesh && selectedMesh.parent) {
             selectedMesh.parent.remove(selectedMesh);
@@ -439,6 +458,7 @@ export function createViewer(container, initialViewSettings = {}) {
         selectedMesh = null;
     }
 
+    // Clear selection outline lines.
     function disposeSelectionOutline() {
         if (selectionOutline && selectionOutline.parent) {
             selectionOutline.parent.remove(selectionOutline);
@@ -453,6 +473,7 @@ export function createViewer(container, initialViewSettings = {}) {
         selectionOutlineMaterial = null;
     }
 
+    // Clear component boundary outlines.
     function disposeComponentOutlines() {
         if (componentOutline && componentOutline.parent) {
             componentOutline.parent.remove(componentOutline);
@@ -467,6 +488,7 @@ export function createViewer(container, initialViewSettings = {}) {
         componentOutlineMaterial = null;
     }
 
+    // Clear global outline around the current mesh anchor.
     function disposeGlobalOutline() {
         if (globalOutline && globalOutline.parent) {
             globalOutline.parent.remove(globalOutline);
@@ -481,6 +503,7 @@ export function createViewer(container, initialViewSettings = {}) {
         globalOutlineMaterial = null;
     }
 
+    // Build a translucent overlay per component to visualize grouping.
     function rebuildComponentOverlay(displayGeom, faceList) {
         // Only show overlays when full mesh is displayed (no face subset)
         disposeOverlay();
@@ -537,6 +560,7 @@ export function createViewer(container, initialViewSettings = {}) {
         currentMesh.add(overlayMesh);
     }
 
+    // Create a faded ghost mesh for non-selected faces when isolating.
     function rebuildGhostMesh(selectedFaceList) {
         disposeGhostMesh();
         if (!currentMesh || !selectedFaceList || !selectedFaceList.length) return;
@@ -591,6 +615,7 @@ export function createViewer(container, initialViewSettings = {}) {
         pivot.add(ghostMesh);
     }
 
+    // Build thick outline lines around the currently selected faces.
     function rebuildSelectionOutline(selectedFaceList, displayGeom, targetMesh = currentMesh) {
         disposeSelectionOutline();
         if (!targetMesh || !selectedFaceList || !selectedFaceList.length) return;
@@ -619,6 +644,7 @@ export function createViewer(container, initialViewSettings = {}) {
         targetMesh.add(selectionOutline);
     }
 
+    // Recompute per-component outlines for componentMode highlighting.
     function rebuildComponentOutlines() {
         disposeComponentOutlines();
         if (!viewSettings.componentMode) return;
@@ -712,10 +738,12 @@ export function createViewer(container, initialViewSettings = {}) {
         currentMesh.add(componentOutline);
     }
 
+    // Decide which mesh the global outline should follow.
     function outlineAnchor() {
         return selectedMesh || currentMesh;
     }
 
+    // Keep global outline aligned with its anchor mesh.
     function syncGlobalOutlineTransform() {
         if (!globalOutline) return;
         const anchor = outlineAnchor();
@@ -725,6 +753,7 @@ export function createViewer(container, initialViewSettings = {}) {
         globalOutline.scale.copy(anchor.scale);
     }
 
+    // Toggle global outline visibility based on settings and anchor visibility.
     function updateGlobalOutlineVisibility() {
         if (!globalOutline) return;
         const anchor = outlineAnchor();
@@ -732,6 +761,7 @@ export function createViewer(container, initialViewSettings = {}) {
         globalOutline.visible = !!viewSettings.outlineEnabled && anchorVisible;
     }
 
+    // Build the outer outline mesh that sits around the active mesh.
     function rebuildGlobalOutline() {
         disposeGlobalOutline();
         if (!viewSettings.outlineEnabled) return;
@@ -767,6 +797,7 @@ export function createViewer(container, initialViewSettings = {}) {
         updateGlobalOutlineVisibility();
     }
 
+    // Hide base mesh/edges when showing component-only isolation.
     function hideBaseMeshesAndLines() {
         if (currentMesh) currentMesh.visible = false;
         if (currentEdges) currentEdges.visible = false;
@@ -775,6 +806,7 @@ export function createViewer(container, initialViewSettings = {}) {
         disposeOverlay();
     }
 
+    // Show base mesh/edges after hiding them for isolation.
     function showBaseMeshesAndLines() {
         if (currentMesh) currentMesh.visible = true;
         if (currentEdges) currentEdges.visible = !viewSettings.componentMode && viewSettings.edgeMode !== "off";
@@ -785,6 +817,7 @@ export function createViewer(container, initialViewSettings = {}) {
         }
     }
 
+    // Resize helpers and reframe camera to fit given geometry.
     function fitHelpersAndCamera(geometry) {
         updateHelperScales(geometry);
         const bounds = getWorldBounds(geometry);
@@ -792,6 +825,7 @@ export function createViewer(container, initialViewSettings = {}) {
         applyFrameToBounds(bounds.sphere || bounds.box, { animate: false });
     }
 
+    // Build edge lines for the current mesh according to edge mode.
     function rebuildEdges() {
         if (!currentMesh) return;
         if (currentEdges) {
@@ -828,6 +862,7 @@ export function createViewer(container, initialViewSettings = {}) {
         currentMesh.add(currentEdges);
     }
 
+    // Apply a face subset (or full mesh) to the viewer and optionally refit camera.
     function applyGeometry(faceList, refitCamera = true) {
         if (!basePositions || !baseIndices) return;
         discardHighlights();
@@ -888,6 +923,7 @@ export function createViewer(container, initialViewSettings = {}) {
         }
     }
 
+    // Rebuild display geometry using the last face list without moving camera.
     function refreshDisplayGeometry(faceList = lastFaceList) {
         if (!basePositions || !baseIndices || !currentMesh) return;
         const faceListSafe = faceList && faceList.length ? faceList.slice() : null;
@@ -921,6 +957,7 @@ export function createViewer(container, initialViewSettings = {}) {
         vertexIndexMap = faceListSafe && faceListSafe.length ? vMap : null;
     }
 
+    // Apply render toggles (wireframe, xray, helpers) to current mesh.
     function applyMaterialSettings() {
         if (!currentMesh) return;
         currentMesh.material.wireframe = viewSettings.wireframe;
@@ -933,6 +970,7 @@ export function createViewer(container, initialViewSettings = {}) {
         ground.visible = viewSettings.grid;
     }
 
+    // Load mesh data from API response and build base geometry arrays.
     function setMeshFromApi(meshData) {
         const { vertices, faces } = meshData;
         disposeOverlay();
@@ -963,6 +1001,7 @@ export function createViewer(container, initialViewSettings = {}) {
         setIdentityMaps();
     }
 
+    // Store component overlay data and rebuild overlay visuals.
     function setComponentOverlays(list) {
         componentOverlays = Array.isArray(list) ? list : [];
         if (currentMesh && currentMesh.geometry) {
@@ -971,6 +1010,7 @@ export function createViewer(container, initialViewSettings = {}) {
         rebuildComponentOutlines();
     }
 
+    // Isolate a set of faces as a temporary selected mesh with ghosted remainder.
     function focusComponentFaces(faceIndices) {
         if (!basePositions || !baseIndices) return;
         if (!faceIndices || !faceIndices.length) return;
@@ -1004,6 +1044,7 @@ export function createViewer(container, initialViewSettings = {}) {
         sourceGeom.dispose();
     }
 
+    // Clear component isolation, showing the full mesh again.
     function clearComponentFocus() {
         disposeGhostMesh();
         disposeSelectionOutline();
@@ -1014,6 +1055,7 @@ export function createViewer(container, initialViewSettings = {}) {
         rebuildEdges();
     }
 
+    // Show a specific component (by faces) and optionally frame camera on it.
     function showComponent(faceIndices, options = {}) {
         const { refitCamera = true } = options;
         if (!basePositions || !baseIndices) return;
@@ -1028,6 +1070,7 @@ export function createViewer(container, initialViewSettings = {}) {
         }
     }
 
+    // Reset to showing all components; refit camera when requested.
     function showAllComponents(options = {}) {
         const { refitCamera = true } = options;
         clearComponentFocus();
@@ -1042,6 +1085,7 @@ export function createViewer(container, initialViewSettings = {}) {
         rebuildEdges();
     }
 
+    // Handle viewport resize to keep renderer and outlines sharp.
     function onResize() {
         const w = container.clientWidth;
         const h = container.clientHeight;
@@ -1072,12 +1116,14 @@ export function createViewer(container, initialViewSettings = {}) {
     window.addEventListener("resize", onResize);
     onResize();
 
+    // Stop smooth focus animation when user interacts.
     function stopFocusAnimation() {
         animatingFocus = false;
         desiredTarget.copy(controls.target);
         desiredCameraPos.copy(camera.position);
     }
 
+    // Cancel focus animation on mouse, scroll, or keyboard input.
     function attachInputInterrupts() {
         const stop = () => stopFocusAnimation();
         renderer.domElement.addEventListener("pointerdown", stop);
@@ -1086,6 +1132,7 @@ export function createViewer(container, initialViewSettings = {}) {
     }
     attachInputInterrupts();
 
+    // Main render loop: updates lighting, animations, and composer rendering.
     function animate(now) {
         requestAnimationFrame(animate);
         const frameTime = now ?? performance.now();
@@ -1154,6 +1201,7 @@ export function createViewer(container, initialViewSettings = {}) {
     animate();
 
     // Highlighting
+    // Remove highlight meshes/lines immediately.
     function discardHighlights() {
         if (highlightMesh) {
             if (highlightMesh.parent) {
@@ -1179,12 +1227,14 @@ export function createViewer(container, initialViewSettings = {}) {
         pendingHighlightClear = false;
     }
 
+    // Fade out highlights; safe to call when nothing is highlighted.
     function clearHighlights() {
         if (!highlightMesh && !highlightEdges) return;
         highlightOpacityTarget = 0;
         pendingHighlightClear = true;
     }
 
+    // Reset highlight state before drawing new highlights.
     function beginHighlighting() {
         discardHighlights();
         highlightOpacity = 0;
@@ -1192,6 +1242,7 @@ export function createViewer(container, initialViewSettings = {}) {
         pendingHighlightClear = false;
     }
 
+    // Remap face indices if a subset geometry is active.
     function mapFaceList(faceIndices) {
         if (!faceIndices || !faceIndices.length) return [];
         if (!faceIndexMap) return faceIndices.slice();
@@ -1205,6 +1256,7 @@ export function createViewer(container, initialViewSettings = {}) {
         return out;
     }
 
+    // Remap edge vertex pairs to current geometry mapping.
     function mapEdgePairs(edgePairs) {
         if (!edgePairs || !edgePairs.length) return [];
         if (!vertexIndexMap) return edgePairs.map((e) => [...e]);
@@ -1219,6 +1271,7 @@ export function createViewer(container, initialViewSettings = {}) {
         return out;
     }
 
+    // Draw translucent faces for provided indices.
     function highlightFaces(faceIndices) {
         if (!currentMesh) return;
         if (!sourceGeometry) return;
@@ -1271,6 +1324,7 @@ export function createViewer(container, initialViewSettings = {}) {
         pendingHighlightClear = false;
     }
 
+    // Draw overlay line segments for provided edge pairs.
     function highlightEdgePairs(edgePairs) {
         if (!currentMesh) return;
         if (!sourceGeometry) return;
@@ -1320,6 +1374,7 @@ export function createViewer(container, initialViewSettings = {}) {
         pendingHighlightClear = false;
     }
 
+    // Compute world-space centroid for a face index.
     function faceCentroid(faceIndex) {
         const baseGeom = sourceGeometry || currentMesh.geometry;
         const posAttr = baseGeom.getAttribute("position");
@@ -1340,6 +1395,7 @@ export function createViewer(container, initialViewSettings = {}) {
         return currentMesh.localToWorld(centroid);
     }
 
+    // Compute world-space midpoint for an edge pair.
     function edgeMidpoint(edgePair) {
         const baseGeom = sourceGeometry || currentMesh.geometry;
         const posAttr = baseGeom.getAttribute("position");
@@ -1353,6 +1409,7 @@ export function createViewer(container, initialViewSettings = {}) {
         return currentMesh.localToWorld(mid);
     }
 
+    // Animate camera toward a point while keeping relative offset reasonable.
     function moveCameraToPoint(point, preferredRadius) {
         if (!currentMesh) return;
         // Preserve current camera offset; only shorten for tighter framing, never lengthen.
@@ -1378,6 +1435,7 @@ export function createViewer(container, initialViewSettings = {}) {
         animatingFocus = true;
     }
 
+    // Recenter mesh on grid and refit camera.
     function centerView() {
         if (!currentMesh) return;
         if (!currentMesh.geometry.boundingBox) currentMesh.geometry.computeBoundingBox();
@@ -1396,6 +1454,7 @@ export function createViewer(container, initialViewSettings = {}) {
         fitHelpersAndCamera(currentMesh.geometry);
     }
 
+    // Frame entire mesh with an animated camera move.
     function frameView() {
         if (!currentMesh) return;
         const bounds = getWorldBounds(currentMesh.geometry);
@@ -1403,14 +1462,17 @@ export function createViewer(container, initialViewSettings = {}) {
         applyFrameToBounds(bounds.sphere || bounds.box, { animate: true });
     }
 
+    // Frame arbitrary bounds or sphere; pass animate flag via options.
     function frameBounds(boundsOrSphere, options = {}) {
         return applyFrameToBounds(boundsOrSphere, options);
     }
 
+    // Return current mesh bounds for external consumers.
     function getCurrentBounds() {
         return getWorldBounds(currentMesh?.geometry);
     }
 
+    // Highlight and focus a single face by index.
     function focusFace(faceIndex) {
         if (!currentMesh || faceIndex == null) return;
         beginHighlighting();
@@ -1423,6 +1485,7 @@ export function createViewer(container, initialViewSettings = {}) {
         controls.update();
     }
 
+    // Highlight and focus a single edge pair.
     function focusEdge(edgePair) {
         if (!currentMesh || !edgePair) return;
         beginHighlighting();
@@ -1435,6 +1498,7 @@ export function createViewer(container, initialViewSettings = {}) {
         controls.update();
     }
 
+    // Highlight all faces/edges for an issue without stepping.
     function showIssueAll(issue) {
         beginHighlighting();
         if (!issue) return;
@@ -1448,6 +1512,7 @@ export function createViewer(container, initialViewSettings = {}) {
         }
     }
 
+    // Highlight a specific item of an issue; falls back to show all.
     function showIssueItem(issue, index) {
         if (!issue) {
             clearHighlights();
@@ -1468,10 +1533,12 @@ export function createViewer(container, initialViewSettings = {}) {
     }
 
     // keep backward compatibility
+    // Deprecated alias for showIssueAll.
     function showIssue(issue) {
         showIssueAll(issue);
     }
 
+    // Apply view settings updates and rebuild dependent visuals.
     function setViewSettings(partial) {
         clearHighlights();
         Object.assign(viewSettings, partial);
@@ -1507,14 +1574,17 @@ export function createViewer(container, initialViewSettings = {}) {
         }
     }
 
+    // Return a copy of current view settings.
     function getViewSettings() {
         return { ...viewSettings };
     }
 
+    // Expose current scene scale for UI.
     function getSceneScale() {
         return sceneScale;
     }
 
+    // Restore default view settings and re-render.
     function resetViewSettings() {
         setViewSettings({
             edgeThreshold: 12,

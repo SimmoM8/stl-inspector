@@ -1,4 +1,5 @@
 // Deterministic component color generator (stable per index).
+// Convert HSL values in [0,1] to hex; use for consistent color tokens.
 function hslToHex(h, s, l) {
     // h in [0,1], s/l in [0,1]
     const hue2rgb = (p, q, t) => {
@@ -21,6 +22,7 @@ function hslToHex(h, s, l) {
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
+// Get a repeatable pastel-ish color for a component index.
 export function getComponentColor(componentIndex) {
     const idx = Math.max(0, componentIndex || 0);
     const hue = ((idx * 0.12745) % 1 + 1) % 1; // golden-ish offset for spread

@@ -1,3 +1,4 @@
+// Create a fresh state object for the UI; call when bootstrapping or resetting.
 function createDefaultState() {
     return {
         issues: [],
@@ -28,6 +29,7 @@ function createDefaultState() {
 
 const state = createDefaultState();
 
+// Reset global state in-place while keeping reactive references alive.
 function resetState() {
     Object.assign(state, createDefaultState(), {
         componentVisibility: {

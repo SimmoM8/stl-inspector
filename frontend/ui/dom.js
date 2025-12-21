@@ -1,3 +1,4 @@
+// Grab an element by id; throws if missing unless optional=true.
 function byId(id, { optional = false } = {}) {
     const el = document.getElementById(id);
     if (!el && !optional) {
@@ -6,11 +7,13 @@ function byId(id, { optional = false } = {}) {
     return el;
 }
 
+// Query selector helper returning a static NodeList.
 function all(selector) {
     return document.querySelectorAll(selector);
 }
 
 const dom = {
+    // Lazy getters keep DOM lookups centralized for UI code.
     get fileInput() { return byId("fileInput"); },
     get viewerContainer() { return byId("viewer"); },
     get issuesEl() { return byId("issues"); },

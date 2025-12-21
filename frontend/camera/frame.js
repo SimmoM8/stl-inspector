@@ -1,5 +1,6 @@
 import * as THREE from "three";
 
+// Normalize a Box3 or Sphere into a bounding sphere for framing.
 function toSphere(boundsOrSphere, tempBox, tempSphere) {
     if (!boundsOrSphere) return null;
     if (boundsOrSphere.isSphere) return boundsOrSphere;
@@ -11,6 +12,7 @@ function toSphere(boundsOrSphere, tempBox, tempSphere) {
     return null;
 }
 
+// Create a framing helper that moves the camera/controls to fit given bounds.
 export function createFrameTarget(camera, controls, options = {}) {
     const {
         distanceMultiplier = 1.15,
@@ -23,6 +25,7 @@ export function createFrameTarget(camera, controls, options = {}) {
     const tempBox = new THREE.Box3();
     const tempSphere = new THREE.Sphere();
 
+    // Frame the provided bounds/sphere; apply true to move camera immediately.
     return function frameTarget(boundsOrSphere, opts = {}) {
         const apply = opts.apply ?? true;
         const sphere = toSphere(boundsOrSphere, tempBox, tempSphere);

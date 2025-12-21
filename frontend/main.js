@@ -18,17 +18,20 @@ viewer.setViewSettings(DEFAULT_VIEW_SETTINGS);
 resetState();
 selectionStore.clear();
 
+// Get current issue index from selectionStore; returns -1 when nothing is selected.
 function getSelectedIssueIndex() {
     const sel = selectionStore.getSelection();
     return sel?.type === "issue" ? sel.id ?? -1 : -1;
 }
 
+// Fetch selected issue object from state; null when none is active.
 function getSelectedIssue() {
     const idx = getSelectedIssueIndex();
     return idx >= 0 ? state.issues[idx] : null;
 }
 
 const issueButtons = [];
+// Toggle collapsed/expanded state for an issue severity group and re-render list.
 function toggleGroup(sev) {
     state.collapsedGroups[sev] = !state.collapsedGroups[sev];
     renderIssuesGrouped(
@@ -43,6 +46,7 @@ function toggleGroup(sev) {
     updateActiveButtons(selectionStore.getSelection(), issueButtons);
 }
 
+// Re-render UI pieces to reflect the latest selection and state.
 function refreshUI() {
     const selection = selectionStore.getSelection();
     renderSelection();
@@ -58,6 +62,7 @@ function refreshUI() {
 
 selectionStore.subscribe(() => refreshUI());
 
+// Normalize issue index data into a kind + array for highlighting.
 function getIssueItems(issue) {
     const faces = Array.isArray(issue.faces) ? issue.faces : [];
     const edges = Array.isArray(issue.edges) ? issue.edges : [];
@@ -66,6 +71,7 @@ function getIssueItems(issue) {
     return { kind: "none", items: [] };
 }
 
+// Update the compact status label with highlight/mode/item info.
 function updateMiniStatus() {
     if (!dom.miniStatus) return;
     if (!state.summary) {
@@ -91,6 +97,7 @@ function updateMiniStatus() {
     dom.miniStatus.classList.toggle("hidden", false);
 }
 
+// Check if an issue passes current filter/search inputs.
 function issueMatchesFilters(issue) {
     if (!issue) return false;
     const filter = (state.issueFilter || "all").toLowerCase();
@@ -103,6 +110,7 @@ function issueMatchesFilters(issue) {
     return typeText.includes(search) || messageText.includes(search);
 }
 
+// Build connected components from mesh faces for selection and overlays.
 function computeComponents(meshData) {
     const faces = Array.isArray(meshData.faces) ? meshData.faces : [];
     if (!faces.length) return [];
@@ -171,17 +179,20 @@ function computeComponents(meshData) {
     return components;
 }
 
+// Ensure component visibility state exists before reading/writing.
 function ensureComponentVisibility() {
     if (!state.componentVisibility || !(state.componentVisibility.ghosted instanceof Set)) {
         state.componentVisibility = { ghosted: new Set() };
     }
 }
 
+// Tell whether a component index is currently ghosted.
 function isComponentGhosted(componentIndex) {
     ensureComponentVisibility();
     return state.componentVisibility.ghosted.has(componentIndex);
 }
 
+// Build overlay payload with ghost flags for the viewer.
 function buildComponentOverlayData() {
     ensureComponentVisibility();
     return state.components.map((comp) => ({
@@ -190,10 +201,12 @@ function buildComponentOverlayData() {
     }));
 }
 
+// Push latest component overlay state into the viewer.
 function updateComponentOverlays() {
     viewer.setComponentOverlays(buildComponentOverlayData());
 }
 
+// Mark a component as ghosted or visible, then refresh overlays/UI.
 function setComponentGhosted(componentIndex, ghosted) {
     ensureComponentVisibility();
     if (ghosted) {
@@ -205,12 +218,14 @@ function setComponentGhosted(componentIndex, ghosted) {
     refreshUI();
 }
 
+// Clear all ghost flags and refresh overlays.
 function clearComponentGhosting() {
     ensureComponentVisibility();
     state.componentVisibility.ghosted.clear();
     updateComponentOverlays();
 }
 
+// Select a component by index (or null to reset) and focus viewer accordingly.
 function applyComponentSelection(componentIndex) {
     const hasSelection = componentIndex !== null && componentIndex !== undefined;
     const comp = hasSelection ? selectionStore.selectComponent(componentIndex) : null;
@@ -241,6 +256,7 @@ function applyComponentSelection(componentIndex) {
     refreshUI();
 }
 
+// Pick the largest component by face count and isolate it.
 function selectLargestComponent() {
     if (!state.components.length) return;
     const largest = state.components.reduce((best, comp) =>
@@ -250,6 +266,7 @@ function selectLargestComponent() {
     applyComponentSelection(largest.componentIndex);
 }
 
+// Switch which side panel is visible and sync nav rail buttons.
 function setActivePanel(panelName) {
     state.activePanel = panelName;
     dom.panels.forEach((p) => {
@@ -262,16 +279,19 @@ function setActivePanel(panelName) {
 
 const mobileQuery = window.matchMedia("(max-width: 900px)");
 
+// Convenience helper for mobile-only behavior.
 function isMobile() {
     return mobileQuery.matches;
 }
 
+// Keep drawer toggle disabled on desktop to avoid stray clicks.
 function syncDrawerToggleState() {
     if (dom.drawerToggleBtn) {
         dom.drawerToggleBtn.disabled = !isMobile();
     }
 }
 
+// Open/close the drawer on mobile and ensure it stays closed on desktop.
 function setDrawerOpen(open) {
     if (!dom.contextPanel || !dom.drawerBackdrop) return;
     if (!isMobile()) {
@@ -287,6 +307,7 @@ function setDrawerOpen(open) {
     syncDrawerToggleState();
 }
 
+// Restore view settings from localStorage into the viewer.
 function loadViewSettings() {
     const saved = localStorage.getItem("stl-view-settings");
     if (saved) {
@@ -302,11 +323,13 @@ function loadViewSettings() {
 
 let statusTimeout = null;
 
+// Persist current viewer settings to localStorage for reuse.
 function saveViewSettings() {
     const current = viewer.getViewSettings();
     localStorage.setItem("stl-view-settings", JSON.stringify(current));
 }
 
+// Show a temporary status bubble message to the user.
 function setStatus(message) {
     if (dom.statusBubble) {
         dom.statusBubble.textContent = message || "";
@@ -321,6 +344,7 @@ function setStatus(message) {
     }
 }
 
+// Sync UI controls to the viewer's current settings.
 function syncViewControls() {
     const v = viewer.getViewSettings();
     dom.edgeThresholdInput.value = v.edgeThreshold;
@@ -339,6 +363,7 @@ function syncViewControls() {
     dom.highlightToggleBtn.title = state.highlightEnabled ? "Hide highlights" : "Show highlights";
 }
 
+// Update details and viewer highlights based on current issue/component selection.
 function renderSelection() {
     const selection = selectionStore.getSelection();
     const issue = getSelectedIssue();
@@ -421,6 +446,7 @@ function renderSelection() {
     updateToolbarVisibility(state, dom, selection);
 }
 
+// Activate an issue by index, reset stepping, and focus the viewer bounds.
 function selectIssue(idx) {
     const issue = state.issues[idx];
     viewer.showAllComponents({ refitCamera: false });
@@ -432,6 +458,7 @@ function selectIssue(idx) {
     renderSelection();
 }
 
+// Clear all selections/highlights and reset viewer overlays.
 function clearSelection() {
     viewer.clearHighlights();
     state.itemIndex = 0;
@@ -443,6 +470,7 @@ function clearSelection() {
     updateToolbarVisibility(state, dom, selectionStore.getSelection());
 }
 
+// Step forwards/backwards through items for the selected issue.
 function moveItem(delta) {
     state.mode = "step"; // auto-switch to stepping when iterating
     const issue = getSelectedIssue();
@@ -454,6 +482,7 @@ function moveItem(delta) {
     renderSelection();
 }
 
+// Highlight a full issue or a specific item depending on mode.
 function highlightIssue(issue, mode, itemIndex) {
     const { kind, items } = getIssueItems(issue);
     const total = items.length;
@@ -472,6 +501,7 @@ function highlightIssue(issue, mode, itemIndex) {
 let previewTimeout = null;
 let restoreTimeout = null;
 
+// Briefly highlight an issue on hover without changing selection.
 function previewIssue(index) {
     if (previewTimeout) clearTimeout(previewTimeout);
     if (restoreTimeout) {
@@ -487,6 +517,7 @@ function previewIssue(index) {
     }, 80);
 }
 
+// Return highlight state back to the active selection after preview.
 function restoreSelectionHighlight() {
     if (previewTimeout) {
         clearTimeout(previewTimeout);

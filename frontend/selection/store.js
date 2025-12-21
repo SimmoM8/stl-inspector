@@ -1,5 +1,6 @@
 import * as THREE from "three";
 
+// Factory for a selection store handling current mesh, components, and listeners.
 function createSelectionStore() {
     let mesh = null;
     let components = [];
@@ -9,8 +10,10 @@ function createSelectionStore() {
 
     const tempVec = new THREE.Vector3();
 
+    // Find a component by index; returns null if missing.
     const findComponent = (componentIndex) => components.find((c) => c.componentIndex === componentIndex) || null;
 
+    // Notify subscribers of the latest selection state.
     function emit() {
         listeners.forEach((fn) => {
             try {
@@ -21,6 +24,7 @@ function createSelectionStore() {
         });
     }
 
+    // Normalize and set the current selection payload.
     function setSelection(next) {
         const normalized = next
             ? {
@@ -45,10 +49,12 @@ function createSelectionStore() {
         return selection;
     }
 
+    // Read the current selection object.
     function getSelection() {
         return selection;
     }
 
+    // Subscribe to selection changes; returns unsubscribe callback.
     function subscribe(listener) {
         if (typeof listener !== "function") return () => { };
         listeners.add(listener);
@@ -63,6 +69,7 @@ function createSelectionStore() {
         return () => listeners.delete(listener);
     }
 
+    // Compute bounding box/sphere for a component, optionally applying an offset.
     function computeBounds(component, offset = new THREE.Vector3()) {
         if (!mesh || !component) return null;
         const faces = Array.isArray(mesh.faces) ? mesh.faces : [];
@@ -92,10 +99,12 @@ function createSelectionStore() {
         return { box, sphere };
     }
 
+    // Store the mesh data used for bounds calculations.
     function setMesh(meshData) {
         mesh = meshData || null;
     }
 
+    // Replace the component list and drop invalid selection.
     function setComponents(list) {
         components = Array.isArray(list) ? list : [];
         if (!findComponent(selectedComponent)) {
@@ -103,6 +112,7 @@ function createSelectionStore() {
         }
     }
 
+    // Select a component by index and emit selection change.
     function selectComponent(componentIndex) {
         const comp = findComponent(componentIndex);
         selectedComponent = comp ? comp.componentIndex : null;
@@ -110,21 +120,25 @@ function createSelectionStore() {
         return comp;
     }
 
+    // Clear any active selection.
     function clearSelection() {
         selectedComponent = null;
         setSelection(null);
     }
 
+    // Reset mesh, components, and selection to defaults.
     function clear() {
         mesh = null;
         components = [];
         clearSelection();
     }
 
+    // Get the currently selected component object.
     function getSelectedComponent() {
         return findComponent(selectedComponent);
     }
 
+    // Compute bounds for a component by index; returns null if not found.
     function getComponentBounds(componentIndex, offset = new THREE.Vector3()) {
         const comp = findComponent(componentIndex);
         if (!comp) return null;
