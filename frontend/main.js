@@ -1,4 +1,4 @@
-import { createViewer } from "./viewer.js";
+import { createViewer } from "./viewer/viewer.js";
 import { getAnalyzeUrl, DEFAULT_VIEW_SETTINGS } from "./config.js";
 import { state, resetState } from "./state.js";
 import { selectionStore } from "./selection/store.js";
