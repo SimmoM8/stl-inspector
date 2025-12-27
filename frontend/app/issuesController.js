@@ -71,7 +71,7 @@ function createIssuesController({
         viewer.showIssueAll(issue);
     }
 
-    // Render detail panel + highlight state based on current selection.
+    // Render detail panel based on current selection (DOM only).
     function renderSelection() {
         const selection = selectionStore.getSelection();
         const issue = getSelectedIssue();
@@ -83,7 +83,6 @@ function createIssuesController({
         dom.modeToggleBtn.innerHTML = `<i class="bi ${modeIcon}"></i>`;
 
         if (!issue) {
-            if (state.highlightEnabled) viewer.clearHighlights();
             if (selection?.type === "component") {
                 const comp = selectionStore.getComponent(selection.id);
                 const placeholderIssue = comp
@@ -118,7 +117,6 @@ function createIssuesController({
         let disableNav = true;
 
         if (state.mode === "all") {
-            if (state.highlightEnabled) viewer.showIssueAll(issue);
             pageLabel = total ? `All ${total} items` : "All items";
             description = total ? "Highlighting all items for this issue." : description;
             disableNav = total <= 1;
@@ -127,16 +125,12 @@ function createIssuesController({
                 const faceIndex = items[safeIndex];
                 pageLabel = `Face ${safeIndex + 1} of ${total}`;
                 description = `Face index: ${faceIndex}`;
-                if (state.highlightEnabled) viewer.showIssueItem(issue, safeIndex);
                 disableNav = total <= 1;
             } else if (kind === "edge" && total) {
                 const edgePair = items[safeIndex];
                 pageLabel = `Edge ${safeIndex + 1} of ${total}`;
                 description = `Edge vertices: ${edgePair.join(" - ")}`;
-                if (state.highlightEnabled) viewer.showIssueItem(issue, safeIndex);
                 disableNav = total <= 1;
-            } else {
-                if (state.highlightEnabled) viewer.showIssueAll(issue);
             }
         }
 
@@ -154,28 +148,20 @@ function createIssuesController({
         updateToolbarVisibility(state, dom, selection);
     }
 
-    // Activate an issue by index, reset stepping, and focus viewer bounds.
+    // Activate an issue by index and reset stepping.
     function selectIssue(idx) {
         const issue = state.issues[idx];
-        viewer.showAllComponents({ refitCamera: false });
+        state.itemIndex = 0;
+        state.mode = "step";
         const bounds = viewer.getCurrentBounds()?.box || null;
         selectionStore.setSelection(issue ? { type: "issue", id: idx, bounds } : null);
-        state.itemIndex = 0;
-        state.mode = "step";
-        renderSelection();
-        notifyChange();
     }
 
-    // Clear issue/component selection and highlights.
+    // Clear issue/component selection and reset stepping state.
     function clearSelection() {
-        viewer.clearHighlights();
         state.itemIndex = 0;
         state.mode = "step";
-        viewer.showAllComponents({ refitCamera: false });
         selectionStore.setSelection(null);
-        renderSelection();
-        updateToolbarVisibility(state, dom, selectionStore.getSelection());
-        notifyChange();
     }
 
     // Move forward/backward through items of selected issue.
@@ -187,7 +173,7 @@ function createIssuesController({
         const total = items.length;
         if (!total) return;
         state.itemIndex = ((state.itemIndex + delta) % total + total) % total;
-        renderSelection();
+        syncViewerToSelection(selectionStore.getSelection());
         notifyChange();
     }
 
@@ -247,6 +233,29 @@ function createIssuesController({
         updateActiveButtons(selectionStore.getSelection(), issueButtons);
     }
 
+    // Apply viewer side effects for the current selection.
+    function syncViewerToSelection(selection) {
+        if (!state.highlightEnabled) {
+            viewer.clearHighlights();
+            return;
+        }
+        if (selection?.type !== "issue") {
+            viewer.clearHighlights();
+            return;
+        }
+        viewer.showAllComponents({ refitCamera: false });
+        const issue = state.issues[selection.id];
+        if (!issue) {
+            viewer.clearHighlights();
+            return;
+        }
+        const { items } = getIssueItems(issue);
+        const total = items.length;
+        const safeIndex = total ? ((state.itemIndex % total) + total) % total : 0;
+        state.itemIndex = safeIndex;
+        highlightIssue(issue, state.mode, safeIndex);
+    }
+
     return {
         clearSelection,
         getIssueItems,
@@ -259,6 +268,7 @@ function createIssuesController({
         restoreSelectionHighlight,
         selectIssue,
         setOnChange,
+        syncViewerToSelection,
         toggleGroup,
     };
 }

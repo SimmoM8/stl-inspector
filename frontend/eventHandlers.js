@@ -3,7 +3,7 @@
 import { getAnalyzeUrl } from "./utils/config.js";
 import { EDGE_MODE_ORDER, PREVIEW_DELAY, TIMING } from "./constants/constants.js";
 import { debounce } from "./utils/config.js";
-import { renderIssueList, refreshUI } from "./uiRefresh.js";
+import { renderIssueList } from "./uiRefresh.js";
 
 /**
  * Sets up all DOM event listeners for the application.
@@ -19,8 +19,15 @@ import { renderIssueList, refreshUI } from "./uiRefresh.js";
  * @param {Object} viewSettingsController - View settings controller instance
  * @param {Object} layoutController - Layout controller instance
  * @param {Object} statusController - Status controller instance
+ * @param {Function} triggerRefresh - Callback to refresh UI
  */
-export function setupEventHandlers(state, viewer, selectionStore, dom, issueButtons, componentsController, issuesController, viewSettingsController, layoutController, statusController) {
+export function setupEventHandlers(state, viewer, selectionStore, dom, issueButtons, componentsController, issuesController, viewSettingsController, layoutController, statusController, triggerRefresh) {
+
+    const syncSelectionHighlight = () => issuesController.syncViewerToSelection(selectionStore.getSelection());
+    const syncSelectionAndRefresh = () => {
+        syncSelectionHighlight();
+        triggerRefresh();
+    };
 
     // File upload handler - processes STL files and updates the viewer
     dom.fileInput.addEventListener("change", async () => {
@@ -57,17 +64,12 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
             selectionStore.setComponents(state.components);
             state.componentVisibility = { ghosted: new Set() };
             componentsController.updateComponentOverlays();
-            selectionStore.setSelection(null);
-
             state.summary = data.summary || null;
 
             renderIssueList(state, dom, issueButtons, issuesController.selectIssue, issuesController.toggleGroup, issuesController.previewIssue, issuesController.restoreSelectionHighlight);
-            refreshUI(state, selectionStore, dom, issuesController, componentsController, statusController, issueButtons);
-
             viewer.showAllComponents({ refitCamera: false });
             selectionStore.setSelection(null);
             componentsController.updateComponentOverlays();
-            refreshUI(state, selectionStore, dom, issuesController, componentsController, statusController, issueButtons);
 
         } catch (err) {
             console.error("File upload/analysis error:", err);
@@ -84,7 +86,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
                 issuesController.clearSelection();
             }
             renderIssueList(state, dom, issueButtons, issuesController.selectIssue, issuesController.toggleGroup, issuesController.previewIssue, issuesController.restoreSelectionHighlight);
-            refreshUI(state, selectionStore, dom, issuesController, componentsController, statusController, issueButtons);
+            triggerRefresh();
         });
     });
 
@@ -96,7 +98,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
             issuesController.clearSelection();
         }
         renderIssueList(state, dom, issueButtons, issuesController.selectIssue, issuesController.toggleGroup, issuesController.previewIssue, issuesController.restoreSelectionHighlight);
-        refreshUI(state, selectionStore, dom, issuesController, componentsController, statusController, issueButtons);
+        triggerRefresh();
     });
 
     // Clear button
@@ -109,7 +111,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
     // Show all issues mode toggle
     dom.showAllBtn.addEventListener("click", () => {
         state.mode = "all";
-        issuesController.renderSelection();
+        syncSelectionAndRefresh();
     });
 
     // Show all components button
@@ -156,12 +158,12 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
     // Mode toggle button (step vs all issues)
     dom.modeToggleBtn.addEventListener("click", () => {
         state.mode = state.mode === "all" ? "step" : "all";
-        issuesController.renderSelection();
+        syncSelectionAndRefresh();
     });
 
     // Camera focus button
     dom.focusBtn.addEventListener("click", () => {
-        issuesController.renderSelection();
+        syncSelectionHighlight();
     });
 
     // Camera center button
@@ -177,14 +179,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
     // Highlight toggle button
     dom.highlightToggleBtn.addEventListener("click", () => {
         state.highlightEnabled = !state.highlightEnabled;
-        const iconClass = state.highlightEnabled ? "bi-lightbulb-fill" : "bi-lightbulb";
-        dom.highlightToggleBtn.innerHTML = `<i class="bi ${iconClass}"></i>`;
-        dom.highlightToggleBtn.title = state.highlightEnabled ? "Hide highlights" : "Show highlights";
-        if (!state.highlightEnabled) {
-            viewer.clearHighlights();
-        } else {
-            issuesController.renderSelection();
-        }
+        syncSelectionAndRefresh();
     });
 
     // Clear toolbar button
@@ -196,7 +191,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
     // View settings controls - edge threshold slider
     const debouncedEdgeThresholdUpdate = debounce(() => {
         viewer.setViewSettings({ edgeThreshold: Number(dom.edgeThresholdInput.value) });
-        issuesController.renderSelection();
+        syncSelectionHighlight();
         viewSettingsController.saveViewSettings();
     }, TIMING.DEBOUNCE_DELAY); // debounce 100ms
     dom.edgeThresholdInput.addEventListener("input", debouncedEdgeThresholdUpdate);
@@ -207,7 +202,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         const next = EDGE_MODE_ORDER[(EDGE_MODE_ORDER.indexOf(current) + 1) % EDGE_MODE_ORDER.length];
         viewer.setViewSettings({ edgeMode: next });
         dom.edgeModeSelect.classList.toggle("active", next !== "off");
-        issuesController.renderSelection();
+        syncSelectionHighlight();
         viewSettingsController.saveViewSettings();
     });
 
@@ -216,7 +211,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         const next = !viewer.getViewSettings().cadShading;
         viewer.setViewSettings({ cadShading: next });
         dom.smoothShadingBtn.classList.toggle("active", next);
-        issuesController.renderSelection();
+        syncSelectionHighlight();
         viewSettingsController.saveViewSettings();
     });
 
@@ -228,7 +223,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         viewer.setViewSettings(payload);
         dom.xrayToggle.classList.toggle("active", next);
         dom.wireframeToggle.classList.toggle("active", false);
-        issuesController.renderSelection();
+        syncSelectionHighlight();
         viewSettingsController.saveViewSettings();
     });
 
@@ -240,7 +235,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         viewer.setViewSettings(payload);
         dom.wireframeToggle.classList.toggle("active", next);
         dom.xrayToggle.classList.toggle("active", false);
-        issuesController.renderSelection();
+        syncSelectionHighlight();
         viewSettingsController.saveViewSettings();
     });
 
@@ -249,7 +244,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         const next = !viewer.getViewSettings().outlineEnabled;
         viewer.setViewSettings({ outlineEnabled: next });
         dom.outlineToggle.classList.toggle("active", next);
-        issuesController.renderSelection();
+        syncSelectionHighlight();
         viewSettingsController.saveViewSettings();
     });
 
@@ -258,7 +253,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         const next = !viewer.getViewSettings().grid;
         viewer.setViewSettings({ grid: next });
         dom.gridToggle.classList.toggle("active", next);
-        issuesController.renderSelection();
+        syncSelectionHighlight();
         viewSettingsController.saveViewSettings();
     });
 
@@ -267,14 +262,14 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         const next = !viewer.getViewSettings().axes;
         viewer.setViewSettings({ axes: next });
         dom.axesToggle.classList.toggle("active", next);
-        issuesController.renderSelection();
+        syncSelectionHighlight();
         viewSettingsController.saveViewSettings();
     });
 
     // SSAO toggle
     dom.ssaoToggle.addEventListener("change", () => {
         viewer.setViewSettings({ ssao: dom.ssaoToggle.checked });
-        issuesController.renderSelection();
+        syncSelectionHighlight();
         viewSettingsController.saveViewSettings();
     });
 
@@ -282,7 +277,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
     if (dom.componentModeToggle) {
         dom.componentModeToggle.addEventListener("change", () => {
             viewer.setViewSettings({ componentMode: dom.componentModeToggle.checked });
-            issuesController.renderSelection();
+            syncSelectionHighlight();
             viewSettingsController.saveViewSettings();
         });
     }
@@ -290,7 +285,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
     // Exposure slider
     const debouncedExposureUpdate = debounce(() => {
         viewer.setViewSettings({ exposure: Number(dom.exposureSlider.value) });
-        issuesController.renderSelection();
+        syncSelectionHighlight();
         viewSettingsController.saveViewSettings();
     }, TIMING.DEBOUNCE_DELAY); // debounce 100ms
     dom.exposureSlider.addEventListener("input", debouncedExposureUpdate);
@@ -299,7 +294,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
     dom.resetViewBtn.addEventListener("click", () => {
         viewer.resetViewSettings();
         viewSettingsController.syncViewControls();
-        issuesController.renderSelection();
+        syncSelectionHighlight();
         viewSettingsController.saveViewSettings();
     });
 

@@ -73,16 +73,21 @@ const layoutController = createLayoutController({ dom, state });
 // StatusController: Handles status messages and mini-status updates
 const statusController = createStatusController({ dom, state, issuesController });
 
+const triggerRefresh = () => refreshUI(state, selectionStore, dom, issuesController, componentsController, statusController, issueButtons);
+
 // Wire up change listeners to refresh the UI whenever state or selections change
-componentsController.setOnChange(() => refreshUI(state, selectionStore, dom, issuesController, componentsController, statusController, issueButtons));
-issuesController.setOnChange(() => refreshUI(state, selectionStore, dom, issuesController, componentsController, statusController, issueButtons));
-selectionStore.subscribe(() => refreshUI(state, selectionStore, dom, issuesController, componentsController, statusController, issueButtons));
+componentsController.setOnChange(triggerRefresh);
+issuesController.setOnChange(triggerRefresh);
+selectionStore.subscribe((selection) => {
+    componentsController.syncSelection(selection);
+    issuesController.syncViewerToSelection(selection);
+    triggerRefresh();
+});
 
 // Perform initial UI setup and rendering
-refreshUI(state, selectionStore, dom, issuesController, componentsController, statusController, issueButtons);
 viewSettingsController.loadViewSettings();
 statusController.setStatus("");
 renderIssueList(state, dom, issueButtons, issuesController.selectIssue, issuesController.toggleGroup, issuesController.previewIssue, issuesController.restoreSelectionHighlight);
 
 // Set up all DOM event listeners for user interactions
-setupEventHandlers(state, viewer, selectionStore, dom, issueButtons, componentsController, issuesController, viewSettingsController, layoutController, statusController);
+setupEventHandlers(state, viewer, selectionStore, dom, issueButtons, componentsController, issuesController, viewSettingsController, layoutController, statusController, triggerRefresh);

@@ -123,35 +123,45 @@ function createComponentsController({ state, viewer, selectionStore, onChange = 
         return components;
     }
 
-    // Isolate a component (or clear selection with null) and refit viewer bounds.
+    // Isolate a component (or clear selection with null) by updating selection once.
     function applyComponentSelection(componentIndex) {
-        const hasSelection = componentIndex !== null && componentIndex !== undefined;
-        const comp = hasSelection ? selectionStore.selectComponent(componentIndex) : null;
-        let bounds = null;
+        const comp = selectionStore.getComponent(componentIndex);
+        const offset = viewer.getMeshOffset();
+        const bounds = comp ? selectionStore.getComponentBounds(componentIndex, offset) : null;
+        selectionStore.setSelection(comp ? { type: "component", id: comp.componentIndex, bounds: bounds?.box || null } : null);
+    }
 
-        if (comp) {
-            viewer.clearHighlights();
+    // Apply viewer side effects for component selections or clears.
+    function syncSelection(selection) {
+        if (selection?.type === "component") {
+            const comp = selectionStore.getComponent(selection.id);
+            if (!comp) {
+                viewer.showAllComponents({ refitCamera: false });
+                updateComponentOverlays();
+                return;
+            }
+            viewer.clearHighlights(); // Clear any issue highlights
             viewer.showComponent(comp.faceIndices, { refitCamera: false });
             const offset = viewer.getMeshOffset();
-            bounds = selectionStore.getComponentBounds(comp.componentIndex, offset);
+            const bounds = selectionStore.getComponentBounds(comp.componentIndex, offset);
             if (bounds?.sphere || bounds?.box) {
                 viewer.frameBounds(bounds.sphere || bounds.box, { animate: true });
             } else {
                 viewer.frameView();
             }
-        } else {
-            viewer.showAllComponents({ refitCamera: false });
-            const allBounds = viewer.getCurrentBounds();
-            bounds = allBounds;
-            if (allBounds?.sphere || allBounds?.box) {
-                viewer.frameBounds(allBounds.sphere || allBounds.box, { animate: true });
-            } else {
-                viewer.frameView();
-            }
-            updateComponentOverlays();
+            return;
         }
-        selectionStore.setSelection(comp ? { type: "component", id: comp.componentIndex, bounds: bounds?.box || null } : null);
-        notifyChange();
+
+        viewer.showAllComponents({ refitCamera: false });
+        updateComponentOverlays();
+        if (selection) return;
+
+        const allBounds = viewer.getCurrentBounds();
+        if (allBounds?.sphere || allBounds?.box) {
+            viewer.frameBounds(allBounds.sphere || allBounds.box, { animate: true });
+        } else {
+            viewer.frameView();
+        }
     }
 
     // Find and isolate the largest component by face count.
@@ -174,6 +184,7 @@ function createComponentsController({ state, viewer, selectionStore, onChange = 
         selectLargestComponent,
         setComponentGhosted,
         setOnChange,
+        syncSelection,
         updateComponentOverlays,
     };
 }
