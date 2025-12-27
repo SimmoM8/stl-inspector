@@ -5,6 +5,8 @@ import { renderIssueList, refreshUI } from "./uiRefresh.js";
 
 /**
  * Sets up all DOM event listeners for the application.
+ * This function centralizes all user interaction handling, including file uploads,
+ * button clicks, keyboard shortcuts, and view setting toggles.
  * @param {Object} state - Application state
  * @param {Object} viewer - Viewer instance
  * @param {Object} selectionStore - Selection store instance
@@ -18,7 +20,7 @@ import { renderIssueList, refreshUI } from "./uiRefresh.js";
  */
 export function setupEventHandlers(state, viewer, selectionStore, dom, issueButtons, componentsController, issuesController, viewSettingsController, layoutController, statusController) {
 
-    // File input change handler
+    // File upload handler - processes STL files and updates the viewer
     dom.fileInput.addEventListener("change", async () => {
         const file = dom.fileInput.files[0];
         if (!file) return;
@@ -74,7 +76,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         }
     });
 
-    // Issues filter buttons
+    // Issues filter buttons - allow filtering issues by severity
     dom.issuesFilterButtons.forEach((btn) => {
         btn.addEventListener("click", () => {
             state.issueFilter = btn.dataset.filter || "all";
@@ -87,7 +89,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         });
     });
 
-    // Issues search input
+    // Issues search input - filters issues by search term
     dom.issuesSearch.addEventListener("input", () => {
         state.issuesSearch = dom.issuesSearch.value;
         const selectedIssue = issuesController.getSelectedIssue();
@@ -101,11 +103,11 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
     // Clear button
     dom.clearBtn.addEventListener("click", issuesController.clearSelection);
 
-    // Navigation buttons
+    // Navigation buttons for stepping through issues
     dom.prevBtn.addEventListener("click", () => issuesController.moveItem(-1));
     dom.nextBtn.addEventListener("click", () => issuesController.moveItem(1));
 
-    // Show all button
+    // Show all issues mode toggle
     dom.showAllBtn.addEventListener("click", () => {
         state.mode = "all";
         issuesController.renderSelection();
@@ -117,7 +119,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         componentsController.applyComponentSelection(null);
     });
 
-    // Auto largest component checkbox
+    // Auto-select largest component checkbox
     dom.autoLargestInput.addEventListener("change", () => {
         if (dom.autoLargestInput.checked) {
             componentsController.selectLargestComponent();
@@ -130,7 +132,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         refreshUI(state, selectionStore, dom, issuesController, componentsController, statusController, issueButtons);
     });
 
-    // Rail buttons for panel switching
+    // Rail buttons for switching between issues and components panels
     dom.railButtons.forEach((btn) => {
         btn.addEventListener("click", () => {
             layoutController.setActivePanel(btn.dataset.panel);
@@ -138,7 +140,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         });
     });
 
-    // Drawer toggle button
+    // Mobile drawer toggle and backdrop
     if (dom.drawerToggleBtn) {
         dom.drawerToggleBtn.addEventListener("click", () => {
             const isOpen = dom.contextPanel && dom.contextPanel.classList.contains("is-open");
@@ -147,19 +149,17 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         layoutController.syncDrawerToggleState();
     }
 
-    // Drawer backdrop
     if (dom.drawerBackdrop) {
         dom.drawerBackdrop.addEventListener("click", () => layoutController.setDrawerOpen(false));
     }
 
-    // Escape key for mobile drawer
+    // Escape key and media query for mobile drawer
     document.addEventListener("keydown", (event) => {
         if (event.key === "Escape" && layoutController.isMobile()) {
             layoutController.setDrawerOpen(false);
         }
     });
 
-    // Mobile query change
     layoutController.mobileQuery.addEventListener("change", (event) => {
         if (!event.matches) {
             layoutController.setDrawerOpen(false);
@@ -167,23 +167,23 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         layoutController.syncDrawerToggleState();
     });
 
-    // Mode toggle button
+    // Mode toggle button (step vs all issues)
     dom.modeToggleBtn.addEventListener("click", () => {
         state.mode = state.mode === "all" ? "step" : "all";
         issuesController.renderSelection();
     });
 
-    // Focus button
+    // Camera focus button
     dom.focusBtn.addEventListener("click", () => {
         issuesController.renderSelection();
     });
 
-    // Center button
+    // Camera center button
     dom.centerBtn.addEventListener("click", () => {
         viewer.centerView();
     });
 
-    // Frame button
+    // Camera frame button
     dom.frameBtn.addEventListener("click", () => {
         viewer.frameView();
     });
@@ -207,13 +207,14 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         viewSettingsController.syncViewControls();
     });
 
-    // View settings toggles
+    // View settings controls - edge threshold slider
     dom.edgeThresholdInput.addEventListener("input", () => {
         viewer.setViewSettings({ edgeThreshold: Number(dom.edgeThresholdInput.value) });
         issuesController.renderSelection();
         viewSettingsController.saveViewSettings();
     });
 
+    // Edge mode toggle button (cycles through feature, all, off)
     dom.edgeModeSelect.addEventListener("click", () => {
         const order = ["feature", "all", "off"];
         const current = viewer.getViewSettings().edgeMode || "feature";
@@ -224,6 +225,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         viewSettingsController.saveViewSettings();
     });
 
+    // Smooth shading toggle
     dom.smoothShadingBtn.addEventListener("click", () => {
         const next = !viewer.getViewSettings().cadShading;
         viewer.setViewSettings({ cadShading: next });
@@ -232,6 +234,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         viewSettingsController.saveViewSettings();
     });
 
+    // X-ray mode toggle
     dom.xrayToggle.addEventListener("click", () => {
         const next = !viewer.getViewSettings().xray;
         const payload = { xray: next };
@@ -243,6 +246,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         viewSettingsController.saveViewSettings();
     });
 
+    // Wireframe toggle
     dom.wireframeToggle.addEventListener("click", () => {
         const next = !viewer.getViewSettings().wireframe;
         const payload = { wireframe: next };
@@ -254,6 +258,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         viewSettingsController.saveViewSettings();
     });
 
+    // Outline toggle
     dom.outlineToggle.addEventListener("click", () => {
         const next = !viewer.getViewSettings().outlineEnabled;
         viewer.setViewSettings({ outlineEnabled: next });
@@ -262,6 +267,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         viewSettingsController.saveViewSettings();
     });
 
+    // Grid toggle
     dom.gridToggle.addEventListener("click", () => {
         const next = !viewer.getViewSettings().grid;
         viewer.setViewSettings({ grid: next });
@@ -270,6 +276,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         viewSettingsController.saveViewSettings();
     });
 
+    // Axes toggle
     dom.axesToggle.addEventListener("click", () => {
         const next = !viewer.getViewSettings().axes;
         viewer.setViewSettings({ axes: next });
@@ -278,12 +285,14 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         viewSettingsController.saveViewSettings();
     });
 
+    // SSAO toggle
     dom.ssaoToggle.addEventListener("change", () => {
         viewer.setViewSettings({ ssao: dom.ssaoToggle.checked });
         issuesController.renderSelection();
         viewSettingsController.saveViewSettings();
     });
 
+    // Component mode toggle (if available)
     if (dom.componentModeToggle) {
         dom.componentModeToggle.addEventListener("change", () => {
             viewer.setViewSettings({ componentMode: dom.componentModeToggle.checked });
@@ -292,12 +301,14 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         });
     }
 
+    // Exposure slider
     dom.exposureSlider.addEventListener("input", () => {
         viewer.setViewSettings({ exposure: Number(dom.exposureSlider.value) });
         issuesController.renderSelection();
         viewSettingsController.saveViewSettings();
     });
 
+    // Reset view settings button
     dom.resetViewBtn.addEventListener("click", () => {
         viewer.resetViewSettings();
         viewSettingsController.syncViewControls();
@@ -305,7 +316,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         viewSettingsController.saveViewSettings();
     });
 
-    // Keyboard shortcuts
+    // Keyboard shortcuts for navigation and actions
     document.addEventListener("keydown", (event) => {
         const target = event.target;
         const tagName = target && target.tagName ? target.tagName.toLowerCase() : "";

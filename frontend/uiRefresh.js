@@ -8,14 +8,16 @@ import {
 } from "./ui/render.js";
 
 /**
- * Renders issue buttons grouped by severity with hover/select handlers.
- * @param {Object} state - Application state
- * @param {Object} dom - DOM elements
- * @param {Array} issueButtons - Array of issue buttons
- * @param {Function} selectIssue - Function to select an issue
- * @param {Function} toggleGroup - Function to toggle group visibility
- * @param {Function} previewIssue - Function to preview an issue
- * @param {Function} restoreSelectionHighlight - Function to restore selection highlight
+ * Renders the list of issues grouped by severity in the UI.
+ * This function updates the issues panel with buttons for each issue,
+ * allowing users to select and interact with detected mesh problems.
+ * @param {Object} state - The application state containing issues and filters
+ * @param {Object} dom - DOM element references
+ * @param {Array} issueButtons - Array to store references to created issue buttons
+ * @param {Function} selectIssue - Callback to select an issue
+ * @param {Function} toggleGroup - Callback to toggle group visibility
+ * @param {Function} previewIssue - Callback to preview an issue on hover
+ * @param {Function} restoreSelectionHighlight - Callback to restore selection highlight
  */
 export function renderIssueList(state, dom, issueButtons, selectIssue, toggleGroup, previewIssue, restoreSelectionHighlight) {
     renderIssuesGrouped(
@@ -30,13 +32,15 @@ export function renderIssueList(state, dom, issueButtons, selectIssue, toggleGro
 }
 
 /**
- * Re-renders UI pieces to reflect selection, filters, and summary.
- * @param {Object} state - Application state
- * @param {Object} selectionStore - Selection store instance
- * @param {Object} dom - DOM elements
- * @param {Object} issuesController - Issues controller instance
- * @param {Object} componentsController - Components controller instance
- * @param {Object} statusController - Status controller instance
+ * Refreshes the entire UI to reflect current state, selection, and filters.
+ * This is called whenever the application state changes to ensure the UI
+ * stays synchronized with the underlying data.
+ * @param {Object} state - The application state
+ * @param {Object} selectionStore - The selection store instance
+ * @param {Object} dom - DOM element references
+ * @param {Object} issuesController - Controller for issue-related operations
+ * @param {Object} componentsController - Controller for component-related operations
+ * @param {Object} statusController - Controller for status messages
  * @param {Array} issueButtons - Array of issue buttons
  */
 export function refreshUI(state, selectionStore, dom, issuesController, componentsController, statusController, issueButtons) {
