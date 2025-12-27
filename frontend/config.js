@@ -42,3 +42,16 @@ export const UI_LIMITS = {
 // UI interaction constants
 export const EDGE_MODE_ORDER = ["feature", "all", "off"];
 export const PREVIEW_DELAY = 80; // milliseconds delay for issue preview on hover
+
+// Utility function to debounce function calls
+export function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
