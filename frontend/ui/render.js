@@ -73,14 +73,7 @@ function renderComponentsList(state, dom, selection, applyComponentSelection) {
     dom.componentsList.innerHTML = "";
     if (!state.components.length) return;
 
-    const search = (state.componentSearch || "").trim().toLowerCase();
-    const matchesSearch = (comp) => {
-        if (!search) return true;
-        const label = `component ${comp.componentIndex}`;
-        return label.toLowerCase().includes(search);
-    };
-
-    state.components.filter(matchesSearch).forEach((comp) => {
+    state.components.forEach((comp) => {
         const row = document.createElement("div");
         row.className = "component-row";
         const chip = document.createElement("span");

@@ -14,7 +14,6 @@ function createDefaultState() {
         summary: null,
         issueFilter: "all",
         issuesSearch: "",
-        componentSearch: "",
         componentVisibility: {
             ghosted: new Set(),
         },

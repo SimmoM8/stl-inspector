@@ -64,14 +64,10 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
             renderIssueList(state, dom, issueButtons, issuesController.selectIssue, issuesController.toggleGroup, issuesController.previewIssue, issuesController.restoreSelectionHighlight);
             refreshUI(state, selectionStore, dom, issuesController, componentsController, statusController, issueButtons);
 
-            if (dom.autoLargestInput.checked && state.components.length) {
-                componentsController.selectLargestComponent();
-            } else {
-                viewer.showAllComponents({ refitCamera: false });
-                selectionStore.setSelection(null);
-                componentsController.updateComponentOverlays();
-                refreshUI(state, selectionStore, dom, issuesController, componentsController, statusController, issueButtons);
-            }
+            viewer.showAllComponents({ refitCamera: false });
+            selectionStore.setSelection(null);
+            componentsController.updateComponentOverlays();
+            refreshUI(state, selectionStore, dom, issuesController, componentsController, statusController, issueButtons);
 
         } catch (err) {
             console.error("File upload/analysis error:", err);
@@ -120,19 +116,6 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
     dom.showAllComponentsBtn.addEventListener("click", () => {
         componentsController.clearComponentGhosting();
         componentsController.applyComponentSelection(null);
-    });
-
-    // Auto-select largest component checkbox
-    dom.autoLargestInput.addEventListener("change", () => {
-        if (dom.autoLargestInput.checked) {
-            componentsController.selectLargestComponent();
-        }
-    });
-
-    // Components search input
-    dom.componentsSearch.addEventListener("input", () => {
-        state.componentSearch = dom.componentsSearch.value || "";
-        refreshUI(state, selectionStore, dom, issuesController, componentsController, statusController, issueButtons);
     });
 
     // Rail buttons for switching between issues and components panels
