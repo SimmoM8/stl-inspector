@@ -73,6 +73,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
             }
 
         } catch (err) {
+            console.error("File upload/analysis error:", err);
             statusController.setStatus("Error: " + err.message);
         }
     });

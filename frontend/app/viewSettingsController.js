@@ -9,7 +9,7 @@ function createViewSettingsController({ viewer, dom, state }) {
                 const parsed = JSON.parse(saved);
                 viewer.setViewSettings(parsed);
             } catch (e) {
-                console.warn("Failed to parse saved view settings", e);
+                console.error("Failed to parse saved view settings", e);
             }
         }
         syncViewControls();
