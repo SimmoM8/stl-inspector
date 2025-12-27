@@ -2,15 +2,22 @@
 import argparse
 import json
 import sys
+from typing import Dict, List, Tuple
 
 import numpy as np
 import trimesh
 
-def build_face_adjacency(mesh):
+def build_face_adjacency(mesh: trimesh.Trimesh) -> Tuple[Dict[int, List[int]], Dict[Tuple[int, int], Tuple[int, int]]]:
     """
+    Build face adjacency information for a mesh.
+
+    Args:
+        mesh: The trimesh mesh object
+
     Returns:
-      adjacency: dict of face_index -> list of neighboring face indices
-      shared_edges: dict of (faceA, faceB) -> (edge as tuple of vertex indices)
+        A tuple containing:
+        - adjacency: dict mapping face index to list of neighboring face indices
+        - shared_edges: dict mapping (faceA, faceB) pairs to the shared edge as (v1, v2)
     """
     from collections import defaultdict
     
@@ -39,10 +46,18 @@ def build_face_adjacency(mesh):
 
     return adjacency, shared_edges
 
-def detect_inconsistent_normals(mesh):
+def detect_inconsistent_normals(mesh: trimesh.Trimesh) -> List[int]:
     """
-    Returns a list of face indices whose orientation was inconsistent
-    relative to neighbors.
+    Detect faces with inconsistent normal orientation relative to neighbors.
+
+    Uses BFS to propagate orientation from face 0, flipping faces that are
+    oriented opposite to their neighbors.
+
+    Args:
+        mesh: The trimesh mesh object
+
+    Returns:
+        List of face indices that had to be flipped for consistent orientation
     """
     adjacency, shared_edges = build_face_adjacency(mesh)
 
@@ -93,10 +108,25 @@ def detect_inconsistent_normals(mesh):
 
     return inconsistent_faces
 
-def analyze_mesh(mesh: trimesh.Trimesh) -> dict:
+def analyze_mesh(mesh: trimesh.Trimesh) -> Dict:
     """
-    Analyze a mesh and return a dict with issue lists and summary info.
-    This is our Step 1 prototype: holes, non-manifold edges, degenerate faces, islands.
+    Analyze a mesh for common issues and return a comprehensive report.
+
+    Performs the following checks:
+    - Degenerate faces (near-zero area)
+    - Non-manifold edges (shared by >2 faces)
+    - Boundary edges (open surfaces)
+    - Connected components (mesh islands)
+    - Watertightness
+    - Inconsistent face normals
+
+    Args:
+        mesh: The trimesh mesh object to analyze
+
+    Returns:
+        Dict containing 'summary' and 'issues' keys:
+        - summary: Basic mesh statistics
+        - issues: List of detected issues with details
     """
     issues = []
 
@@ -105,6 +135,7 @@ def analyze_mesh(mesh: trimesh.Trimesh) -> dict:
     num_faces = len(mesh.faces)
 
     # ---------- Degenerate faces ----------
+    # Check for faces with near-zero area (potential issues)
     areas = mesh.area_faces  # area of each triangle
     degenerate_idx = np.where(areas < 1e-10)[0].tolist()
 
@@ -118,13 +149,11 @@ def analyze_mesh(mesh: trimesh.Trimesh) -> dict:
         })
 
     # ---------- Non-manifold & boundary edges ----------
+    # Analyze edge sharing to detect topology issues
     # trimesh precomputes edges and how many faces share them
-    # edges_unique: array of [v0, v1]
-    # edges_unique_counts: how many faces share that edge
     edges_unique = mesh.edges_unique
 
-    # Compute how many faces share each unique edge
-    # mesh.edges_unique_inverse maps each edge in mesh.edges to its unique-edge index.
+    # Compute how many faces share each unique edge using vectorized operations
     edge_counts = np.bincount(
         mesh.edges_unique_inverse,
         minlength=len(mesh.edges_unique)
@@ -155,6 +184,7 @@ def analyze_mesh(mesh: trimesh.Trimesh) -> dict:
         })
 
     # ---------- Connected components (islands) ----------
+    # Split mesh into connected components
     components = mesh.split(only_watertight=False)
 
     components_info = []
@@ -175,6 +205,7 @@ def analyze_mesh(mesh: trimesh.Trimesh) -> dict:
         })
 
     # ---------- Watertightness ----------
+    # Check if mesh is watertight (no holes)
     if not mesh.is_watertight:
         issues.append({
             "type": "watertight",
@@ -189,6 +220,7 @@ def analyze_mesh(mesh: trimesh.Trimesh) -> dict:
         })
 
     # ---------- Inconsistent normals ----------
+    # Check face orientation consistency
     try:
         inconsistent = detect_inconsistent_normals(mesh)
         if inconsistent:
@@ -219,7 +251,14 @@ def analyze_mesh(mesh: trimesh.Trimesh) -> dict:
     return result
 
 
-def print_human_readable(report: dict, path: str) -> None:
+def print_human_readable(report: Dict, path: str) -> None:
+    """
+    Print a human-readable summary of the mesh analysis report.
+
+    Args:
+        report: The analysis report dict from analyze_mesh
+        path: Path to the analyzed file for display
+    """
     summary = report["summary"]
     issues = report["issues"]
 
@@ -248,7 +287,11 @@ def print_human_readable(report: dict, path: str) -> None:
             print(f"[{sev}] {t} -> {msg}")
 
 
-def main():
+def main() -> None:
+    """
+    Main entry point for the command-line STL analysis tool.
+    Parses arguments, loads mesh, analyzes it, and prints results.
+    """
     parser = argparse.ArgumentParser(
         description="Analyze an STL file for common mesh issues."
     )
