@@ -100,6 +100,13 @@ Detailed data flow:
    ```
    Frontend will be served on http://localhost:5173 with hot reload
 
+3. Run tests:
+   ```bash
+   cd frontend
+   npm install
+   npm test
+   ```
+
 ### Production
 For production, serve the `frontend/` directory with a static server, and ensure the backend API endpoints are correctly configured in `config.js`.
 

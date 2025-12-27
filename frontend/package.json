@@ -1,0 +1,24 @@
+{
+  "name": "stl-inspector-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for STL Inspector",
+  "type": "module",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "transform": {},
+    "extensionsToTreatAsEsm": [".js"],
+    "globals": {
+      "ts-jest": {
+        "useESM": true
+      }
+    }
+  }
+}</content>
+<parameter name="filePath">/Users/benjaminsimmons/Documents/CODING/stl-inspector/package.json
