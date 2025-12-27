@@ -38,3 +38,7 @@ export const UI_LIMITS = {
     maxHighlightFaces: 20000,
     maxHighlightEdges: 20000,
 };
+
+// UI interaction constants
+export const EDGE_MODE_ORDER = ["feature", "all", "off"];
+export const PREVIEW_DELAY = 80; // milliseconds delay for issue preview on hover

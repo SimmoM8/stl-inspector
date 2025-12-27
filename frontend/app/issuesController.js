@@ -1,5 +1,7 @@
 // Manage issue selection, highlighting, filtering, and detail rendering.
 // Create controller bound to viewer/state/dom; call setOnChange for UI refresh hooks.
+import { PREVIEW_DELAY } from "../config.js";
+
 function createIssuesController({
     state,
     viewer,
@@ -205,7 +207,7 @@ function createIssuesController({
             if (!state.highlightEnabled) return;
             if (!issue) return;
             highlightIssue(issue, "all", 0);
-        }, 80);
+        }, PREVIEW_DELAY);
     }
 
     // Restore highlight to selected issue after hover preview.

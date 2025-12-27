@@ -1,6 +1,7 @@
 // eventHandlers.js - Setup for all DOM event listeners
 
 import { getAnalyzeUrl } from "./config.js";
+import { EDGE_MODE_ORDER, PREVIEW_DELAY } from "./config.js";
 import { renderIssueList, refreshUI } from "./uiRefresh.js";
 
 /**
@@ -216,9 +217,8 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
 
     // Edge mode toggle button (cycles through feature, all, off)
     dom.edgeModeSelect.addEventListener("click", () => {
-        const order = ["feature", "all", "off"];
         const current = viewer.getViewSettings().edgeMode || "feature";
-        const next = order[(order.indexOf(current) + 1) % order.length];
+        const next = EDGE_MODE_ORDER[(EDGE_MODE_ORDER.indexOf(current) + 1) % EDGE_MODE_ORDER.length];
         viewer.setViewSettings({ edgeMode: next });
         dom.edgeModeSelect.classList.toggle("active", next !== "off");
         issuesController.renderSelection();
