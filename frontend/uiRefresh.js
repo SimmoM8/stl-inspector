@@ -46,7 +46,7 @@ export function renderIssueList(state, dom, issueButtons, selectIssue, toggleGro
 export function refreshUI(state, selectionStore, dom, issuesController, componentsController, statusController, issueButtons) {
     const selection = selectionStore.getSelection();
     issuesController.renderSelection();
-    renderComponentsList(state, dom, selection, componentsController.applyComponentSelection, componentsController.setComponentGhosted);
+    renderComponentsList(state, dom, selection, componentsController.applyComponentSelection);
     updateSummary(dom, state.summary);
     updateActiveButtons(selection, issueButtons);
     dom.issuesFilterButtons.forEach((btn) => {

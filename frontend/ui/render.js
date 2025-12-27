@@ -69,7 +69,7 @@ function renderIssuesGrouped(state, dom, issueButtons, selectIssue, toggleGroup,
 }
 
 // Render the components list with isolate/ghost controls and selection highlighting.
-function renderComponentsList(state, dom, selection, applyComponentSelection, toggleGhost) {
+function renderComponentsList(state, dom, selection, applyComponentSelection) {
     dom.componentsList.innerHTML = "";
     if (!state.components.length) return;
 
@@ -90,33 +90,8 @@ function renderComponentsList(state, dom, selection, applyComponentSelection, to
         const label = document.createElement("span");
         label.textContent = `Component ${comp.componentIndex}`;
 
-        const actions = document.createElement("div");
-        actions.className = "component-actions";
-
-        const isolateBtn = document.createElement("button");
-        isolateBtn.className = "chip-btn";
-        isolateBtn.textContent = "Isolate";
-        isolateBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            applyComponentSelection(comp.componentIndex);
-        });
-
-        const isGhosted = state.componentVisibility?.ghosted?.has(comp.componentIndex);
-        const ghostBtn = document.createElement("button");
-        ghostBtn.className = "chip-btn";
-        ghostBtn.textContent = isGhosted ? "Show" : "Ghost";
-        ghostBtn.title = isGhosted ? "Show component" : "Ghost component";
-        ghostBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            toggleGhost(comp.componentIndex, !isGhosted);
-        });
-
-        actions.appendChild(isolateBtn);
-        actions.appendChild(ghostBtn);
-
         row.appendChild(chip);
         row.appendChild(label);
-        row.appendChild(actions);
         const isSelected = selection?.type === "component" && selection.id === comp.componentIndex;
         row.classList.toggle("active", isSelected);
         row.addEventListener("click", () => {
