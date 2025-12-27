@@ -13,6 +13,7 @@ import {
     frameBounds, getCurrentBounds, stopFocusAnimation, attachInputInterrupts,
     updateCameraAnimation
 } from "./viewer-camera.js";
+import { MATERIALS } from "../constants/constants.js";
 import {
     discardHighlights, clearHighlights, beginHighlighting, highlightFaces,
     highlightEdgePairs, faceCentroid, edgeMidpoint, focusFace, focusEdge,
@@ -78,9 +79,9 @@ export function createViewer(container, initialViewSettings = {}) {
         highlightOpacity: 0,
         highlightOpacityTarget: 0,
         pendingHighlightClear: false,
-        highlightFaceOpacity: 0.85,
-        highlightLineOpacity: 0.9,
-        highlightFadeSeconds: 0.12,
+        highlightFaceOpacity: MATERIALS.HIGHLIGHT_OPACITY,
+        highlightLineOpacity: MATERIALS.HIGHLIGHT_LINE_OPACITY,
+        highlightFadeSeconds: MATERIALS.HIGHLIGHT_FADE_SECONDS,
 
         // Animation and interaction state
         lastFrameTime: performance.now(),

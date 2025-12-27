@@ -17,7 +17,8 @@
  */
 
 import { createViewer } from "./viewer/viewer.js";
-import { getAnalyzeUrl, DEFAULT_VIEW_SETTINGS } from "./config.js";
+import { getAnalyzeUrl } from "./utils/config.js";
+import { DEFAULT_VIEW_SETTINGS } from "./constants/constants.js";
 import { state, resetState } from "./state.js";
 import { selectionStore } from "./selection/store.js";
 import { dom } from "./ui/dom.js";

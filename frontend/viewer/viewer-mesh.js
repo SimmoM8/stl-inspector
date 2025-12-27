@@ -5,6 +5,7 @@ import { discardHighlights } from "./viewer-highlight.js";
 import { disposeGhostMesh, disposeSelectedMesh, disposeSelectionOutline, disposeComponentOutlines, disposeGlobalOutline } from "./viewer-components.js";
 import { fitHelpersAndCamera } from "./viewer-camera.js";
 import { buildGeometryFromFaceList } from "./viewer-geometry.js";
+import { MATERIALS } from "../constants/constants.js";
 
 /**
  * Clears face and vertex remap tables when using full geometry.
@@ -90,8 +91,8 @@ export function applyGeometry(faceList, refitCamera = true, viewerState) {
     // Create or update the current mesh
     if (!viewerState.currentMesh) {
         const material = new THREE.MeshStandardMaterial({
-            metalness: 0.0,
-            roughness: 0.8,
+            metalness: MATERIALS.METALNESS,
+            roughness: MATERIALS.ROUGHNESS,
             color: viewerState.baseMeshColor,
         });
         viewerState.currentMesh = new THREE.Mesh(displayGeom, material);

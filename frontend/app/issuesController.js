@@ -1,6 +1,6 @@
 // Manage issue selection, highlighting, filtering, and detail rendering.
 // Create controller bound to viewer/state/dom; call setOnChange for UI refresh hooks.
-import { PREVIEW_DELAY } from "../config.js";
+import { PREVIEW_DELAY } from "../constants/constants.js";
 
 function createIssuesController({
     state,

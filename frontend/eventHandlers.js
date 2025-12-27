@@ -1,7 +1,8 @@
 // eventHandlers.js - Setup for all DOM event listeners
 
-import { getAnalyzeUrl } from "./config.js";
-import { EDGE_MODE_ORDER, PREVIEW_DELAY, debounce } from "./config.js";
+import { getAnalyzeUrl } from "./utils/config.js";
+import { EDGE_MODE_ORDER, PREVIEW_DELAY, TIMING } from "./constants/constants.js";
+import { debounce } from "./utils/config.js";
 import { renderIssueList, refreshUI } from "./uiRefresh.js";
 
 /**
@@ -214,7 +215,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         viewer.setViewSettings({ edgeThreshold: Number(dom.edgeThresholdInput.value) });
         issuesController.renderSelection();
         viewSettingsController.saveViewSettings();
-    }, 100); // debounce 100ms
+    }, TIMING.DEBOUNCE_DELAY); // debounce 100ms
     dom.edgeThresholdInput.addEventListener("input", debouncedEdgeThresholdUpdate);
 
     // Edge mode toggle button (cycles through feature, all, off)
@@ -308,7 +309,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         viewer.setViewSettings({ exposure: Number(dom.exposureSlider.value) });
         issuesController.renderSelection();
         viewSettingsController.saveViewSettings();
-    }, 100); // debounce 100ms
+    }, TIMING.DEBOUNCE_DELAY); // debounce 100ms
     dom.exposureSlider.addEventListener("input", debouncedExposureUpdate);
 
     // Reset view settings button

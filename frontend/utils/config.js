@@ -1,9 +1,16 @@
-// config.js
+// utils/config.js - Utility functions and configuration
 
 // Build the API endpoint for analysis; use in fetch calls to backend.
 export function getAnalyzeUrl() {
     // Vite dev server: use proxy relative path to avoid CORS.
-    const isViteDev = typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV;
+    // Check for Vite dev environment (only available in Vite)
+    let isViteDev = false;
+    try {
+        isViteDev = typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV;
+    } catch (e) {
+        // In test environment, import.meta might not be available
+        isViteDev = false;
+    }
     if (isViteDev) return "/api/analyze";
 
     // If you open index.html directly (file://) or use a static server,
@@ -18,30 +25,6 @@ export function getAnalyzeUrl() {
     // When deployed with backend + frontend same origin:
     return "/api/analyze";
 }
-
-export const DEFAULT_VIEW_SETTINGS = {
-    edgeThreshold: 12,
-    edgeMode: "feature",
-    cadShading: true,
-    wireframe: false,
-    xray: false,
-    grid: true,
-    axes: true,
-    exposure: 1.9,
-    ssao: false,
-    outlineEnabled: true,
-    componentMode: false,
-};
-
-// If you want later: app-level constants (colors, limits, etc.)
-export const UI_LIMITS = {
-    maxHighlightFaces: 20000,
-    maxHighlightEdges: 20000,
-};
-
-// UI interaction constants
-export const EDGE_MODE_ORDER = ["feature", "all", "off"];
-export const PREVIEW_DELAY = 80; // milliseconds delay for issue preview on hover
 
 // Utility function to debounce function calls
 export function debounce(func, wait) {

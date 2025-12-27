@@ -6,6 +6,7 @@ import { LineSegmentsGeometry } from "https://unpkg.com/three@0.160.0/examples/j
 import { buildGeometryFromFaceList } from "./viewer-geometry.js";
 import { getFaceBounds, getWorldBounds, applyFrameToBounds } from "./viewer-camera.js";
 import { getEdgeLineWidthPx } from "./viewer-view-settings.js";
+import { MATERIALS } from "../constants/constants.js";
 
 /**
  * Remove ghost mesh that hides non-selected faces.
@@ -136,8 +137,8 @@ export function rebuildGhostMesh(selectedFaceList, viewerState) {
     const mat = new THREE.MeshStandardMaterial({
         color: 0x6b7280,
         transparent: true,
-        opacity: 0.15,
-        metalness: 0.0,
+        opacity: MATERIALS.EDGE_OPACITY,
+        metalness: MATERIALS.METALNESS,
         roughness: 0.9,
         depthWrite: false,
         side: THREE.FrontSide,
@@ -173,7 +174,7 @@ export function rebuildSelectionOutline(selectedFaceList, displayGeom, targetMes
         color: 0x111111,
         linewidth: Math.max(2, getEdgeLineWidthPx(viewerState) * 1.6),
         transparent: true,
-        opacity: 0.85,
+        opacity: MATERIALS.HIGHLIGHT_OPACITY,
         depthTest: true,
         polygonOffset: true,
         polygonOffsetFactor: -2,
@@ -205,8 +206,8 @@ export function focusComponentFaces(faceIndices, viewerState) {
     rebuildGhostMesh(faceIndices, viewerState);
     const { sourceGeom, displayGeom } = buildGeometryFromFaceList(faceIndices, viewerState);
     const material = new THREE.MeshStandardMaterial({
-        metalness: 0.0,
-        roughness: 0.8,
+        metalness: MATERIALS.METALNESS,
+        roughness: MATERIALS.ROUGHNESS,
         color: viewerState.baseMeshColor,
     });
     viewerState.selectedMesh = new THREE.Mesh(displayGeom, material);
