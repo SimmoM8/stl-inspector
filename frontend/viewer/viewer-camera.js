@@ -88,7 +88,9 @@ export function applyFrameToBounds(boundsOrSphere, options = {}, viewerState) {
 
     const minDistance = Math.max(0.01, frame.minDistance);
     viewerState.controls.minDistance = minDistance;
-    viewerState.controls.maxDistance = Math.max(minDistance * 2, frame.maxDistance);
+    const baseRadius = getMeshRadius(viewerState);
+    const baseMaxDistance = Math.max(minDistance * 2, baseRadius * 10);
+    viewerState.controls.maxDistance = Math.max(minDistance * 2, frame.maxDistance, baseMaxDistance);
     viewerState.camera.near = frame.near;
     viewerState.camera.far = frame.far;
     viewerState.camera.updateProjectionMatrix();

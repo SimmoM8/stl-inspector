@@ -202,6 +202,9 @@ export function focusComponentFaces(faceIndices, viewerState) {
     disposeSelectedMesh(viewerState);
     disposeSelectionOutline(viewerState);
     // TODO: disposeOverlay
+    if (viewerState.currentMesh) {
+        viewerState.currentMesh.visible = false; // hide the base mesh while isolating a component
+    }
 
     rebuildGhostMesh(faceIndices, viewerState);
     const { sourceGeom, displayGeom } = buildGeometryFromFaceList(faceIndices, viewerState);
@@ -235,6 +238,9 @@ export function clearComponentFocus(viewerState) {
     disposeSelectedMesh(viewerState);
     // TODO: showBaseMeshesAndLines
     // TODO: rebuildComponentOutlines, rebuildGlobalOutline, rebuildEdges
+    if (viewerState.currentMesh) {
+        viewerState.currentMesh.visible = true;
+    }
 }
 
 /**
@@ -286,4 +292,3 @@ export function setComponentOverlays(list, viewerState) {
     }
     // TODO: rebuildComponentOutlines(viewerState);
 }
-
