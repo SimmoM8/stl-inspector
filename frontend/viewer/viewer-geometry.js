@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import * as BufferGeometryUtils from "https://unpkg.com/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js";
 
 /**
  * Builds a compact geometry from a subset of faces, maintaining maps for remapping.
@@ -9,7 +8,7 @@ import * as BufferGeometryUtils from "https://unpkg.com/three@0.160.0/examples/j
  * @returns {Object} Object containing sourceGeom, displayGeom, faceMap, and vertexMap.
  */
 export function buildGeometryFromFaceList(faceList, viewerState) {
-    const { basePositions, baseIndices, baseFaceCount, viewSettings } = viewerState;
+    const { basePositions, baseIndices, baseFaceCount } = viewerState;
     const useFaces = faceList && faceList.length ? faceList : [...Array(baseFaceCount).keys()];
     const positions = [];
     const remappedIndices = new Uint32Array(useFaces.length * 3);
@@ -47,15 +46,9 @@ export function buildGeometryFromFaceList(faceList, viewerState) {
     sourceGeom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
     sourceGeom.setIndex(new THREE.BufferAttribute(remappedIndices, 1));
 
-    // Display geometry can be modified for shading (creased normals) without breaking highlight indices.
-    let displayGeom = sourceGeom.clone();
-
-    if (viewSettings.cadShading) {
-        const creaseAngle = THREE.MathUtils.degToRad(30);
-        displayGeom = BufferGeometryUtils.toCreasedNormals(displayGeom, creaseAngle);
-    } else {
-        displayGeom.computeVertexNormals();
-    }
+    // Display geometry mirrors source geometry; normals are always recomputed smoothly.
+    const displayGeom = sourceGeom.clone();
+    displayGeom.computeVertexNormals();
 
     // Compute bounds for BOTH geometries
     sourceGeom.computeBoundingBox();

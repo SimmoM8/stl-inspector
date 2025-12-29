@@ -35,6 +35,7 @@ const dom = {
     get showAllBtn() { return byId("showAllBtn"); },
     get componentsList() { return byId("componentsList"); },
     get showAllComponentsBtn() { return byId("showAllComponentsBtn"); },
+    get componentColorsBtn() { return byId("componentColorsBtn"); },
     get railButtons() { return all(".rail button[data-panel]"); },
     get panels() { return all(".panel"); },
     get toolbar() { return byId("floatingToolbar", { optional: true }); },
@@ -63,7 +64,6 @@ const dom = {
     get axesToggle() { return byId("axesToggle"); },
     get ssaoToggle() { return byId("ssaoToggle"); },
     get exposureSlider() { return byId("exposureSlider"); },
-    get componentModeToggle() { return byId("componentModeToggle"); },
     get resetViewBtn() { return byId("resetViewBtn"); },
 };
 

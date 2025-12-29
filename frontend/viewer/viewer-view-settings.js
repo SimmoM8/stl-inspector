@@ -8,7 +8,8 @@ import { getComponentColor } from "../components/colors.js";
 
 // Apply render toggles (wireframe, xray, helpers) to current mesh.
 export function applyMaterialSettings(viewerState) {
-    const { currentMesh, viewSettings, gridHelper, axesHelper, ground } = viewerState;
+    const { currentMesh, selectedMesh, viewSettings, gridHelper, axesHelper, ground } = viewerState;
+    applyShadingMode(viewerState);
     if (!currentMesh) return;
     currentMesh.material.wireframe = viewSettings.wireframe;
     currentMesh.material.transparent = viewSettings.xray;
@@ -18,6 +19,20 @@ export function applyMaterialSettings(viewerState) {
     gridHelper.visible = viewSettings.grid;
     axesHelper.visible = viewSettings.axes;
     ground.visible = viewSettings.grid;
+}
+
+// Toggle flat/smooth shading on active meshes based on cadShading flag.
+export function applyShadingMode(viewerState) {
+    const flat = !!viewerState.viewSettings.cadShading;
+    const applyToMesh = (mesh) => {
+        if (!mesh || !mesh.material) return;
+        if (mesh.material.flatShading !== flat) {
+            mesh.material.flatShading = flat;
+            mesh.material.needsUpdate = true;
+        }
+    };
+    applyToMesh(viewerState.currentMesh);
+    applyToMesh(viewerState.selectedMesh);
 }
 
 // Update ambient occlusion kernel size based on scene scale.
@@ -179,7 +194,7 @@ export function rebuildComponentOverlay(displayGeom, faceList, viewerState) {
     disposeOverlay(viewerState);
     if (!currentMesh || !displayGeom || faceList) return;
     if (!Array.isArray(componentOverlays) || !componentOverlays.length) return;
-    if (viewSettings.componentMode) return;
+    if (!viewSettings.componentColors || viewSettings.componentMode) return;
     const indexAttr = displayGeom.getIndex();
     const posAttr = displayGeom.getAttribute("position");
     if (!indexAttr || !posAttr) return;
@@ -432,10 +447,11 @@ export function setViewSettings(partial, viewerState) {
     }
 
     if (partial.cadShading !== undefined) {
-        refreshDisplayGeometry(lastFaceList, viewerState);
+        applyShadingMode(viewerState);
+        rebuildEdges(viewerState);
+        rebuildGlobalOutline(viewerState);
     } else {
         rebuildEdges(viewerState);
-        applyMaterialSettings(viewerState);
         if (partial.edgeThreshold !== undefined) {
             rebuildGlobalOutline(viewerState);
         }
@@ -443,11 +459,18 @@ export function setViewSettings(partial, viewerState) {
 
     if (partial.componentMode !== undefined) {
         disposeOverlay(viewerState);
-        if (currentMesh?.geometry && !viewSettings.componentMode) {
+        if (currentMesh?.geometry && viewSettings.componentColors && !viewSettings.componentMode) {
             rebuildComponentOverlay(currentMesh.geometry, lastFaceList, viewerState);
         }
         rebuildComponentOutlines(viewerState);
         updateGlobalOutlineVisibility(viewerState);
+    }
+
+    if (partial.componentColors !== undefined) {
+        disposeOverlay(viewerState);
+        if (currentMesh?.geometry && viewSettings.componentColors && !viewSettings.componentMode) {
+            rebuildComponentOverlay(currentMesh.geometry, lastFaceList, viewerState);
+        }
     }
 
     if (partial.outlineEnabled !== undefined) {
@@ -455,6 +478,8 @@ export function setViewSettings(partial, viewerState) {
     } else {
         updateGlobalOutlineVisibility(viewerState);
     }
+
+    applyMaterialSettings(viewerState);
 }
 
 // Return a copy of current view settings.
@@ -476,6 +501,7 @@ export function resetViewSettings(viewerState) {
         ssao: false,
         outlineEnabled: true,
         componentMode: false,
+        componentColors: false,
     }, viewerState);
 }
 

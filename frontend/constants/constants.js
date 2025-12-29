@@ -32,8 +32,8 @@ export const SELECTORS = {
     GRID_TOGGLE: "#gridToggle",
     AXES_TOGGLE: "#axesToggle",
     SSAO_TOGGLE: "#ssaoToggle",
-    COMPONENT_MODE_TOGGLE: "#componentModeToggle",
     EXPOSURE_SLIDER: "#exposureSlider",
+    COMPONENT_COLORS_BTN: "#componentColorsBtn",
     RESET_VIEW_BTN: "#resetViewBtn",
     STATUS_BUBBLE: "#statusBubble",
     MINI_STATUS: "#miniStatus",
@@ -99,6 +99,7 @@ export const DEFAULT_VIEW_SETTINGS = {
     ssao: false,
     outlineEnabled: true,
     componentMode: false,
+    componentColors: false,
 };
 
 // UI Limits

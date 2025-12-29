@@ -34,7 +34,7 @@ function createViewSettingsController({ viewer, dom, state }) {
         dom.outlineToggle.classList.toggle("active", !!v.outlineEnabled);
         dom.ssaoToggle.checked = !!v.ssao;
         dom.exposureSlider.value = v.exposure;
-        if (dom.componentModeToggle) dom.componentModeToggle.checked = !!v.componentMode;
+        if (dom.componentColorsBtn) dom.componentColorsBtn.classList.toggle("active", !!v.componentColors);
         const iconClass = state.highlightEnabled ? "bi-lightbulb-fill" : "bi-lightbulb";
         dom.highlightToggleBtn.innerHTML = `<i class="bi ${iconClass}"></i>`;
         dom.highlightToggleBtn.title = state.highlightEnabled ? "Hide highlights" : "Show highlights";

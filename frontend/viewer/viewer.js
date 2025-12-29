@@ -5,7 +5,7 @@ import {
     setViewSettings, getViewSettings, resetViewSettings, applyMaterialSettings,
     updateSceneScale, updateShadowCameraBounds, rebuildGridHelper, updateHelperScales,
     rebuildEdges, rebuildGlobalOutline, rebuildComponentOverlay, rebuildComponentOutlines,
-    disposeOverlay, disposeComponentOutlines, disposeGlobalOutline, refreshDisplayGeometry
+    disposeOverlay, disposeComponentOutlines, disposeGlobalOutline
 } from "./viewer-view-settings.js";
 import {
     getSafeScale, getMeshOffset, getWorldBounds, getFaceBounds, applyFrameToBounds,
@@ -106,12 +106,13 @@ export function createViewer(container, initialViewSettings = {}) {
             xray: false,
             grid: true,
             axes: true,
-            exposure: 1.9,
-            ssao: false,
-            outlineEnabled: true,
-            componentMode: false,
-        }
-    };
+        exposure: 1.9,
+        ssao: false,
+        outlineEnabled: true,
+        componentMode: false,
+        componentColors: false,
+    }
+};
 
     // Apply initial view settings
     Object.assign(viewerState.viewSettings, initialViewSettings);

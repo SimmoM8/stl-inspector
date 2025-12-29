@@ -120,6 +120,14 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         componentsController.applyComponentSelection(null);
     });
 
+    // Component colors toggle
+    dom.componentColorsBtn.addEventListener("click", () => {
+        const next = !viewer.getViewSettings().componentColors;
+        viewer.setViewSettings({ componentColors: next });
+        dom.componentColorsBtn.classList.toggle("active", next);
+        viewSettingsController.saveViewSettings();
+    });
+
     // Rail buttons for switching between issues and components panels
     dom.railButtons.forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -272,15 +280,6 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         syncSelectionHighlight();
         viewSettingsController.saveViewSettings();
     });
-
-    // Component mode toggle (if available)
-    if (dom.componentModeToggle) {
-        dom.componentModeToggle.addEventListener("change", () => {
-            viewer.setViewSettings({ componentMode: dom.componentModeToggle.checked });
-            syncSelectionHighlight();
-            viewSettingsController.saveViewSettings();
-        });
-    }
 
     // Exposure slider
     const debouncedExposureUpdate = debounce(() => {

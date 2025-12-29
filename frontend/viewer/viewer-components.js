@@ -5,7 +5,7 @@ import { LineSegments2 } from "https://unpkg.com/three@0.160.0/examples/jsm/line
 import { LineSegmentsGeometry } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineSegmentsGeometry.js";
 import { buildGeometryFromFaceList } from "./viewer-geometry.js";
 import { getFaceBounds, getWorldBounds, applyFrameToBounds } from "./viewer-camera.js";
-import { getEdgeLineWidthPx } from "./viewer-view-settings.js";
+import { getEdgeLineWidthPx, rebuildComponentOverlay, disposeOverlay } from "./viewer-view-settings.js";
 import { MATERIALS } from "../constants/constants.js";
 
 /**
@@ -288,7 +288,11 @@ export function showAllComponents(options = {}, viewerState) {
 export function setComponentOverlays(list, viewerState) {
     viewerState.componentOverlays = Array.isArray(list) ? list : [];
     if (viewerState.currentMesh && viewerState.currentMesh.geometry) {
-        // TODO: rebuildComponentOverlay(viewerState.currentMesh.geometry, viewerState.lastFaceList, viewerState);
+        if (viewerState.viewSettings.componentColors && !viewerState.viewSettings.componentMode) {
+            rebuildComponentOverlay(viewerState.currentMesh.geometry, viewerState.lastFaceList, viewerState);
+        } else {
+            disposeOverlay(viewerState);
+        }
     }
     // TODO: rebuildComponentOutlines(viewerState);
 }
