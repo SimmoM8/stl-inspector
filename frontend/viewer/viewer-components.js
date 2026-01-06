@@ -168,10 +168,32 @@ export function rebuildSelectionOutline(selectedFaceList, displayGeom, targetMes
     const edgesGeom = new THREE.EdgesGeometry(displayGeom, 0.1);
     const lineGeom = new LineSegmentsGeometry();
     lineGeom.setPositions(edgesGeom.getAttribute("position").array);
+    
+    // In wireframe mode with colors enabled, color the outline with the component color
+    const { viewSettings, selectedComponentIndex } = viewerState;
+    const useVertexColors = viewSettings.wireframe && viewSettings.componentColors && Number.isInteger(selectedComponentIndex);
+    
+    if (useVertexColors) {
+        const colorHex = getComponentColor(selectedComponentIndex);
+        const c = new THREE.Color(colorHex);
+        const positions = edgesGeom.getAttribute("position").array;
+        const numVertices = positions.length / 3;
+        const colorArray = new Float32Array(numVertices * 3);
+        
+        for (let i = 0; i < numVertices; i++) {
+            colorArray[i * 3 + 0] = c.r;
+            colorArray[i * 3 + 1] = c.g;
+            colorArray[i * 3 + 2] = c.b;
+        }
+        
+        lineGeom.setColors(colorArray);
+    }
+    
     edgesGeom.dispose();
 
     viewerState.selectionOutlineMaterial = new LineMaterial({
-        color: 0x111111,
+        color: useVertexColors ? 0xffffff : 0x111111,
+        vertexColors: useVertexColors,
         linewidth: Math.max(2, getEdgeLineWidthPx(viewerState) * 1.6),
         transparent: true,
         opacity: MATERIALS.HIGHLIGHT_OPACITY,
@@ -206,6 +228,9 @@ export function focusComponentFaces(faceIndices, viewerState, options = {}) {
     if (viewerState.currentMesh) {
         viewerState.currentMesh.visible = false; // hide the base mesh while isolating a component
     }
+
+    // Store the face list for later use when view settings change
+    viewerState.lastFaceList = faceIndices && faceIndices.length ? faceIndices.slice() : null;
 
     rebuildGhostMesh(faceIndices, viewerState);
     const { sourceGeom, displayGeom } = buildGeometryFromFaceList(faceIndices, viewerState);
@@ -245,6 +270,7 @@ export function clearComponentFocus(viewerState) {
     disposeSelectionOutline(viewerState);
     disposeSelectedMesh(viewerState);
     viewerState.selectedComponentIndex = null;
+    viewerState.lastFaceList = null; // Clear the face list when showing all components
     // TODO: showBaseMeshesAndLines
     // TODO: rebuildComponentOutlines, rebuildGlobalOutline, rebuildEdges
     if (viewerState.currentMesh) {
