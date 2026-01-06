@@ -6,6 +6,25 @@ import { LineSegments2 } from "https://unpkg.com/three@0.160.0/examples/jsm/line
 import { LineSegmentsGeometry } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineSegmentsGeometry.js";
 import { getComponentColor } from "../components/colors.js";
 
+// Compute world-space floor (mesh minY after translation). This should be ~0 when the mesh is seated on the grid.
+function getFloorY(viewerState) {
+    const mesh = viewerState.currentMesh;
+    if (!mesh || !mesh.geometry) return 0;
+    if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+    const minY = mesh.geometry.boundingBox?.min?.y;
+    const posY = mesh.position?.y;
+    if (!Number.isFinite(minY) || !Number.isFinite(posY)) return 0;
+    return minY + posY;
+}
+
+// Keep helpers aligned to the computed mesh floor (expected to be y≈0).
+export function setFloorHeight(viewerState) {
+    const floorY = getFloorY(viewerState);
+    if (viewerState.gridHelper) viewerState.gridHelper.position.y = floorY;
+    if (viewerState.axesHelper) viewerState.axesHelper.position.y = floorY;
+    if (viewerState.ground) viewerState.ground.position.y = floorY;
+}
+
 // Apply render toggles (wireframe, xray, helpers) to current mesh.
 export function applyMaterialSettings(viewerState) {
     const { currentMesh, selectedMesh, viewSettings, gridHelper, axesHelper, ground } = viewerState;
@@ -126,14 +145,14 @@ export function rebuildGridHelper(size, divisions, viewerState) {
 
 // Resize helpers (axes, grid, ground) after geometry changes; call post-mesh load.
 export function updateHelperScales(geometry, viewerState) {
-    const { axesHelper, gridHelper, ground, sceneScale } = viewerState;
+    const { axesHelper, ground, currentMesh } = viewerState;
     const r = getHelperRadius(geometry, viewerState);
     axesHelper.scale.setScalar(r);
     const gridSize = Math.max(2, r * 4);
     const divisions = Math.round(THREE.MathUtils.clamp(gridSize / (r * 0.1), 20, 100));
     rebuildGridHelper(gridSize, divisions, viewerState);
+    setFloorHeight(viewerState);
     ground.scale.setScalar(gridSize / 10);
-    ground.position.y = 0;
 }
 
 // Build edge lines for the current mesh according to edge mode.

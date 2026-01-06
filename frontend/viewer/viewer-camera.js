@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { updateHelperScales } from "./viewer-view-settings.js";
 
 /**
  * Safe guard for sceneScale to avoid NaNs.
@@ -163,10 +164,11 @@ export function centerView(viewerState) {
     const minY = viewerState.currentMesh.geometry.boundingBox.min.y;
 
     // Place mesh center at origin in X/Z and rest it on the grid in Y (no cumulative drift)
-    viewerState.currentMesh.position.set(-center.x, -minY, -center.z);
-    const floorY = viewerState.currentMesh.position.y;
-    viewerState.gridHelper.position.y = floorY;
-    viewerState.ground.position.y = floorY;
+    viewerState.modelOffset = new THREE.Vector3(-center.x, -minY, -center.z);
+    viewerState.currentMesh.position.copy(viewerState.modelOffset);
+    // Keep helpers on world Y=0 when re-centering; setFloorHeight will recompute from mesh if needed.
+    viewerState.gridHelper.position.y = 0;
+    viewerState.ground.position.y = 0;
     // TODO: syncGlobalOutlineTransform and updateGlobalOutlineVisibility
 
     fitHelpersAndCamera(viewerState.currentMesh.geometry, viewerState);
@@ -245,5 +247,4 @@ export function updateCameraAnimation(dt, viewerState) {
     }
 }
 
-// Placeholder functions that need to be implemented
-function updateHelperScales(geometry, viewerState) { /* TODO */ }
+// updateHelperScales now imported from viewer-view-settings

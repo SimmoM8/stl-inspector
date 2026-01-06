@@ -25,6 +25,29 @@ export function setIdentityMaps(viewerState) {
 export function setMeshFromApi(meshData, viewerState) {
     const { vertices, faces } = meshData;
 
+    // Normalize incoming geometry to a consistent display scale so the model always fits the grid/camera sensibly.
+    let minX = Infinity, minY = Infinity, minZ = Infinity;
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    for (const v of vertices) {
+        const x = v[0];
+        const y = v[1];
+        const z = v[2];
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (z < minZ) minZ = z;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+        if (z > maxZ) maxZ = z;
+    }
+    const sizeX = maxX - minX;
+    const sizeY = maxY - minY;
+    const sizeZ = maxZ - minZ;
+    const rawRadius = Math.sqrt(sizeX * sizeX + sizeY * sizeY + sizeZ * sizeZ) * 0.5;
+    const safeRadius = Number.isFinite(rawRadius) && rawRadius > 0 ? rawRadius : 1;
+    const targetRadius = 1.0;
+    const scale = THREE.MathUtils.clamp(targetRadius / Math.max(safeRadius, 1e-6), 0.02, 50);
+    viewerState.modelScale = scale;
+
     // Dispose of existing overlays and components
     disposeOverlay(viewerState);
     viewerState.componentOverlays = [];
@@ -37,9 +60,9 @@ export function setMeshFromApi(meshData, viewerState) {
     // Convert vertices array to flat Float32Array
     viewerState.basePositions = new Float32Array(vertices.length * 3);
     for (let i = 0; i < vertices.length; i++) {
-        viewerState.basePositions[i * 3 + 0] = vertices[i][0];
-        viewerState.basePositions[i * 3 + 1] = vertices[i][1];
-        viewerState.basePositions[i * 3 + 2] = vertices[i][2];
+        viewerState.basePositions[i * 3 + 0] = vertices[i][0] * scale;
+        viewerState.basePositions[i * 3 + 1] = vertices[i][1] * scale;
+        viewerState.basePositions[i * 3 + 2] = vertices[i][2] * scale;
     }
 
     // Convert faces array to flat Uint32Array of indices
@@ -91,6 +114,8 @@ export function applyGeometry(faceList, refitCamera = true, viewerState) {
     const center = new THREE.Vector3();
     box.getCenter(center);
     const minY = box.min.y;
+    // Store a stable model offset so all helpers can share the same floor reference.
+    viewerState.modelOffset = new THREE.Vector3(-center.x, -minY, -center.z);
 
     // Create or update the current mesh
     if (!viewerState.currentMesh) {
@@ -113,10 +138,10 @@ export function applyGeometry(faceList, refitCamera = true, viewerState) {
     }
 
     // Position the mesh so it sits on the ground plane
-    viewerState.currentMesh.position.set(-center.x, -minY, -center.z);
-    const floorY = viewerState.currentMesh.position.y;
-    viewerState.gridHelper.position.y = floorY;
-    viewerState.ground.position.y = floorY;
+    viewerState.currentMesh.position.copy(viewerState.modelOffset);
+    // Seat the mesh so its lowest point rests on world Y=0; helpers will sync via setFloorHeight.
+    viewerState.gridHelper.position.y = 0;
+    viewerState.ground.position.y = 0;
 
     // Update various visual elements
     rebuildEdges(viewerState);
