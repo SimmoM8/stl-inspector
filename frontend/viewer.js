@@ -30,7 +30,7 @@ export function createViewer(container, initialViewSettings = {}) {
     const highlightFaceOpacity = 0.85;
     const highlightLineOpacity = 0.9;
     const highlightFadeSeconds = 0.12;
-    const gridSizeMultiplier = 10; // Grid extends 5× the bounding sphere diameter
+    const gridSizeMultiplier = 10; // Grid size is 10× radius = 5× diameter (extends ±5r from center)
     const gridDivisionFactor = 0.2; // Controls grid cell density
     let sceneScale = 1;
     let desiredTarget = new THREE.Vector3(0, 0, 0);
