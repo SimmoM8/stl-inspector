@@ -467,7 +467,7 @@ export function createViewer(container, initialViewSettings = {}) {
         currentMesh.material.opacity = viewSettings.xray ? 0.4 : 1.0;
         currentMesh.material.needsUpdate = true;
 
-        // Rebuild edges to update depthTest based on xray mode
+        // Update edge depthTest based on xray mode
         if (edgeLineMaterial) {
             edgeLineMaterial.depthTest = !viewSettings.xray;
             edgeLineMaterial.needsUpdate = true;
