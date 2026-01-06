@@ -69,7 +69,8 @@ export function applyMaterialSettings(viewerState) {
     const anchorVisible = !!(selectedMesh ? selectedMesh.visible !== false : currentMesh && currentMesh.visible !== false);
     if (globalOutline) globalOutline.visible = !!viewSettings.outlineEnabled && anchorVisible;
     if (componentOutline) componentOutline.visible = !!viewSettings.outlineEnabled && anchorVisible;
-    if (selectionOutline) selectionOutline.visible = !!viewSettings.outlineEnabled && (!!selectedMesh && selectedMesh.visible !== false);
+    // Selection outline should stay visible while a component is selected, regardless of outline toggle.
+    if (selectionOutline) selectionOutline.visible = !!selectedMesh && selectedMesh.visible !== false;
 }
 
 // Toggle flat/smooth shading on active meshes based on cadShading flag.
