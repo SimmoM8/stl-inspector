@@ -393,7 +393,7 @@ export function createViewer(container, initialViewSettings = {}) {
             linewidth: getEdgeLineWidthPx(),
             transparent: true,
             opacity: 0.95,
-            depthTest: true,
+            depthTest: !viewSettings.xray,
         });
         renderer.getDrawingBufferSize(drawBufferSize);
         edgeLineMaterial.resolution.set(drawBufferSize.x, drawBufferSize.y);
@@ -466,6 +466,12 @@ export function createViewer(container, initialViewSettings = {}) {
         currentMesh.material.transparent = viewSettings.xray;
         currentMesh.material.opacity = viewSettings.xray ? 0.4 : 1.0;
         currentMesh.material.needsUpdate = true;
+
+        // Rebuild edges to update depthTest based on xray mode
+        if (edgeLineMaterial) {
+            edgeLineMaterial.depthTest = !viewSettings.xray;
+            edgeLineMaterial.needsUpdate = true;
+        }
 
         gridHelper.visible = viewSettings.grid;
         axesHelper.visible = viewSettings.axes;
