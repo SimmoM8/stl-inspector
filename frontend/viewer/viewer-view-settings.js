@@ -28,7 +28,8 @@ export function setFloorHeight(viewerState) {
 
 // Apply render toggles (wireframe, xray, helpers) to current mesh.
 export function applyMaterialSettings(viewerState) {
-    const { currentMesh, selectedMesh, viewSettings, gridHelper, axesHelper, ground, selectedComponentIndex, baseMeshColor } = viewerState;
+    const { currentMesh, selectedMesh, viewSettings, gridHelper, axesHelper, ground, selectedComponentIndex, baseMeshColor,
+        globalOutlineMaterial, componentOutlineMaterial, selectionOutlineMaterial } = viewerState;
     applyShadingMode(viewerState);
 
     const targets = [currentMesh, selectedMesh].filter(Boolean);
@@ -54,6 +55,16 @@ export function applyMaterialSettings(viewerState) {
     gridHelper.visible = viewSettings.grid;
     axesHelper.visible = viewSettings.axes;
     ground.visible = viewSettings.grid;
+
+    // In xray mode the mesh still writes depth, so outlines can get hidden.
+    const outlineDepthTest = !viewSettings.xray;
+    const outlineDepthWrite = !viewSettings.xray;
+    const outlineMats = [globalOutlineMaterial, componentOutlineMaterial, selectionOutlineMaterial].filter(Boolean);
+    for (const mat of outlineMats) {
+        mat.depthTest = outlineDepthTest;
+        mat.depthWrite = outlineDepthWrite;
+        mat.needsUpdate = true;
+    }
 }
 
 // Toggle flat/smooth shading on active meshes based on cadShading flag.
