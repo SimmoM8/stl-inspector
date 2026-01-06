@@ -31,10 +31,12 @@ export function applyMaterialSettings(viewerState) {
     const { currentMesh, selectedMesh, viewSettings, gridHelper, axesHelper, ground, selectedComponentIndex, baseMeshColor,
         componentOutlineMaterial, selectionOutline, selectionOutlineMaterial } = viewerState;
     applyShadingMode(viewerState);
+    applyComponentVertexColors(viewerState);
 
     const targets = [currentMesh, selectedMesh].filter(Boolean);
     for (const mesh of targets) {
         if (!mesh.material) continue;
+        mesh.material.vertexColors = !!(viewSettings.wireframe && viewSettings.componentColors && mesh === currentMesh);
         mesh.material.wireframe = viewSettings.wireframe;
         mesh.material.transparent = viewSettings.xray;
         mesh.material.opacity = viewSettings.xray ? 0.4 : 1.0;
@@ -48,6 +50,7 @@ export function applyMaterialSettings(viewerState) {
             : baseMeshColor;
         if (targetColor) {
             selectedMesh.material.color.copy(targetColor);
+            selectedMesh.material.vertexColors = false;
             selectedMesh.material.needsUpdate = true;
         }
     }
@@ -68,6 +71,57 @@ export function applyMaterialSettings(viewerState) {
 
     // Selection outline stays visible while a component is selected.
     if (selectionOutline) selectionOutline.visible = !!selectedMesh && selectedMesh.visible !== false;
+}
+
+// When wireframe + componentColors are enabled, color vertices per-component on the main mesh.
+function applyComponentVertexColors(viewerState) {
+    const { currentMesh, viewSettings, componentOverlays, faceIndexMap } = viewerState;
+    if (!currentMesh || !currentMesh.geometry) return;
+    const geom = currentMesh.geometry;
+    const posAttr = geom.getAttribute("position");
+    const indexAttr = geom.getIndex();
+    if (!posAttr || !indexAttr) return;
+
+    const shouldColor = !!(viewSettings.componentColors && viewSettings.wireframe && !viewSettings.componentMode);
+    if (!shouldColor) {
+        if (geom.getAttribute("color")) {
+            geom.deleteAttribute("color");
+            geom.attributes.position.needsUpdate = true;
+        }
+        return;
+    }
+
+    const faceCount = indexAttr.count / 3;
+    const colorArray = new Float32Array(posAttr.count * 3).fill(1);
+
+    const faceMap = faceIndexMap instanceof Map ? faceIndexMap : null;
+
+    for (const comp of componentOverlays || []) {
+        const colorHex = getComponentColor(comp.componentIndex);
+        const c = new THREE.Color(colorHex);
+        if (comp.ghosted) {
+            c.lerp(new THREE.Color(0x8a8f9a), 0.8);
+        }
+        const faces = Array.isArray(comp.faceIndices) ? comp.faceIndices : [];
+        for (const originalFace of faces) {
+            const mappedFace = faceMap ? faceMap.get(originalFace) : originalFace;
+            if (!Number.isInteger(mappedFace) || mappedFace < 0 || mappedFace >= faceCount) continue;
+            const i0 = indexAttr.getX(mappedFace * 3 + 0);
+            const i1 = indexAttr.getX(mappedFace * 3 + 1);
+            const i2 = indexAttr.getX(mappedFace * 3 + 2);
+            const assign = (vi) => {
+                colorArray[vi * 3 + 0] = c.r;
+                colorArray[vi * 3 + 1] = c.g;
+                colorArray[vi * 3 + 2] = c.b;
+            };
+            assign(i0);
+            assign(i1);
+            assign(i2);
+        }
+    }
+
+    geom.setAttribute("color", new THREE.BufferAttribute(colorArray, 3));
+    geom.attributes.color.needsUpdate = true;
 }
 
 // Toggle flat/smooth shading on active meshes based on cadShading flag.
