@@ -295,6 +295,8 @@ export function rebuildComponentOverlay(displayGeom, faceList, viewerState) {
     const { currentMesh, componentOverlays, viewSettings, baseFaceCount, baseIndices } = viewerState;
     // Only show overlays when full mesh is displayed (no face subset)
     disposeOverlay(viewerState);
+    // Skip overlay when wireframe+componentColors: we rely on vertex colors instead of face overlay.
+    if (viewSettings.wireframe && viewSettings.componentColors) return;
     if (!currentMesh || !displayGeom || faceList) return;
     if (!Array.isArray(componentOverlays) || !componentOverlays.length) return;
     if (!viewSettings.componentColors || viewSettings.componentMode) return;
@@ -493,6 +495,13 @@ export function setViewSettings(partial, viewerState) {
             rebuildComponentOverlay(currentMesh.geometry, lastFaceList, viewerState);
         }
         refreshSelectedComponentColor(viewerState);
+    }
+
+    if (partial.wireframe !== undefined) {
+        disposeOverlay(viewerState);
+        if (currentMesh?.geometry && viewSettings.componentColors && !viewSettings.componentMode && !viewSettings.wireframe) {
+            rebuildComponentOverlay(currentMesh.geometry, lastFaceList, viewerState);
+        }
     }
 
     applyMaterialSettings(viewerState);
