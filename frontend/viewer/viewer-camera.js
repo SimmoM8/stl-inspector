@@ -156,7 +156,8 @@ export function moveCameraToPoint(point, distance, viewerState) {
  */
 export function centerView(viewerState) {
     if (!viewerState.currentMesh) return;
-    if (!viewerState.currentMesh.geometry.boundingBox) viewerState.currentMesh.geometry.computeBoundingBox();
+    viewerState.currentMesh.geometry.computeBoundingBox();
+    viewerState.currentMesh.geometry.computeBoundingSphere();
     const center = new THREE.Vector3();
     viewerState.currentMesh.geometry.boundingBox.getCenter(center);
     const minY = viewerState.currentMesh.geometry.boundingBox.min.y;

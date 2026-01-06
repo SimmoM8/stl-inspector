@@ -65,7 +65,7 @@ function createIssuesController({
         }
         if ((kind === "face" || kind === "edge") && total) {
             const safeIndex = ((itemIndex % total) + total) % total;
-            viewer.showIssueItem(issue, safeIndex);
+            viewer.showIssueItem(issue, safeIndex, { focusCamera: true });
             return;
         }
         viewer.showIssueAll(issue);
@@ -192,7 +192,12 @@ function createIssuesController({
             previewTimeout = null;
             if (!state.highlightEnabled) return;
             if (!issue) return;
-            highlightIssue(issue, "all", 0);
+            const { kind, items } = getIssueItems(issue);
+            if ((kind === "face" || kind === "edge") && items.length) {
+                viewer.showIssueItem(issue, 0, { focusCamera: false });
+            } else {
+                viewer.showIssueAll(issue);
+            }
         }, PREVIEW_DELAY);
     }
 

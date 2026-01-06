@@ -82,6 +82,10 @@ export function applyGeometry(faceList, refitCamera = true, viewerState) {
     }
     viewerState.sourceGeometry = sourceGeom;
 
+    // Ensure bounds are up to date for positioning/framing
+    displayGeom.computeBoundingBox();
+    displayGeom.computeBoundingSphere();
+
     // Calculate mesh positioning based on bounding box
     const box = displayGeom.boundingBox;
     const center = new THREE.Vector3();
@@ -166,6 +170,10 @@ export function refreshDisplayGeometry(faceList = null, viewerState) {
     viewerState.currentMesh.rotation.copy(prevRotation);
     viewerState.currentMesh.scale.copy(prevScale);
 
+    // Keep bounds fresh for downstream camera/bounds calculations
+    viewerState.currentMesh.geometry.computeBoundingBox();
+    viewerState.currentMesh.geometry.computeBoundingSphere();
+
     // Update visual elements
     rebuildEdges(viewerState);
     rebuildGlobalOutline(viewerState);
@@ -175,4 +183,3 @@ export function refreshDisplayGeometry(faceList = null, viewerState) {
     viewerState.faceIndexMap = faceListSafe && faceListSafe.length ? faceMap : null;
     viewerState.vertexIndexMap = faceListSafe && faceListSafe.length ? vMap : null;
 }
-

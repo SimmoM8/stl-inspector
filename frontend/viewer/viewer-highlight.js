@@ -222,30 +222,46 @@ export function edgeMidpoint(edgePair, viewerState) {
 }
 
 // Highlight and focus a single face by index.
-export function focusFace(faceIndex, viewerState) {
+export function highlightFaceOnly(faceIndex, viewerState) {
     const { currentMesh } = viewerState;
+    if (!currentMesh || faceIndex == null) return;
+    beginHighlighting(viewerState);
+    highlightFaces([faceIndex], viewerState);
+}
+
+// Highlight and focus a single face by index.
+export function focusFace(faceIndex, viewerState) {
+    const { currentMesh, camera, controls } = viewerState;
     if (!currentMesh || faceIndex == null) return;
     beginHighlighting(viewerState);
     highlightFaces([faceIndex], viewerState);
     const mapped = mapFaceList([faceIndex], viewerState);
     if (!mapped.length) return;
     const centroid = faceCentroid(mapped[0], viewerState);
-    const r = getMeshRadius(viewerState);
-    moveCameraToPoint(centroid, r * 0.6, viewerState);
+    const dist = camera.position.distanceTo(controls.target);
+    moveCameraToPoint(centroid, dist, viewerState);
     viewerState.controls.update();
 }
 
 // Highlight and focus a single edge pair.
-export function focusEdge(edgePair, viewerState) {
+export function highlightEdgeOnly(edgePair, viewerState) {
     const { currentMesh } = viewerState;
+    if (!currentMesh || !edgePair) return;
+    beginHighlighting(viewerState);
+    highlightEdgePairs([edgePair], viewerState);
+}
+
+// Highlight and focus a single edge pair.
+export function focusEdge(edgePair, viewerState) {
+    const { currentMesh, camera, controls } = viewerState;
     if (!currentMesh || !edgePair) return;
     beginHighlighting(viewerState);
     highlightEdgePairs([edgePair], viewerState);
     const mapped = mapEdgePairs([edgePair], viewerState);
     if (!mapped.length) return;
     const mid = edgeMidpoint(mapped[0], viewerState);
-    const r = getMeshRadius(viewerState);
-    moveCameraToPoint(mid, r * 0.6, viewerState);
+    const dist = camera.position.distanceTo(controls.target);
+    moveCameraToPoint(mid, dist, viewerState);
     viewerState.controls.update();
 }
 
@@ -264,7 +280,8 @@ export function showIssueAll(issue, viewerState) {
 }
 
 // Highlight a specific item of an issue; falls back to show all.
-export function showIssueItem(issue, index, viewerState) {
+export function showIssueItem(issue, index, options = {}, viewerState) {
+    const { focusCamera = true } = options || {};
     if (!issue) {
         clearHighlights(viewerState);
         return;
@@ -274,10 +291,18 @@ export function showIssueItem(issue, index, viewerState) {
 
     if (faces.length) {
         const safe = ((index % faces.length) + faces.length) % faces.length;
-        focusFace(faces[safe], viewerState);
+        if (focusCamera) {
+            focusFace(faces[safe], viewerState);
+        } else {
+            highlightFaceOnly(faces[safe], viewerState);
+        }
     } else if (edges.length) {
         const safe = ((index % edges.length) + edges.length) % edges.length;
-        focusEdge(edges[safe], viewerState);
+        if (focusCamera) {
+            focusEdge(edges[safe], viewerState);
+        } else {
+            highlightEdgeOnly(edges[safe], viewerState);
+        }
     } else {
         showIssueAll(issue, viewerState);
     }
@@ -316,4 +341,4 @@ export function updateHighlightAnimation(dt, viewerState) {
 
 // Import functions from other modules
 import { getHighlightLineWidthPx } from "./viewer-view-settings.js";
-import { getMeshRadius, moveCameraToPoint } from "./viewer-camera.js";
+import { moveCameraToPoint } from "./viewer-camera.js";
