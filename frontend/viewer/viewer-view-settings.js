@@ -29,7 +29,7 @@ export function setFloorHeight(viewerState) {
 // Apply render toggles (wireframe, xray, helpers) to current mesh.
 export function applyMaterialSettings(viewerState) {
     const { currentMesh, selectedMesh, viewSettings, gridHelper, axesHelper, ground, selectedComponentIndex, baseMeshColor,
-        globalOutline, globalOutlineMaterial, componentOutline, componentOutlineMaterial, selectionOutline, selectionOutlineMaterial } = viewerState;
+        globalOutlineMaterial, componentOutlineMaterial, selectionOutline, selectionOutlineMaterial } = viewerState;
     applyShadingMode(viewerState);
 
     const targets = [currentMesh, selectedMesh].filter(Boolean);
@@ -66,10 +66,7 @@ export function applyMaterialSettings(viewerState) {
         mat.needsUpdate = true;
     }
 
-    const anchorVisible = !!(selectedMesh ? selectedMesh.visible !== false : currentMesh && currentMesh.visible !== false);
-    if (globalOutline) globalOutline.visible = !!viewSettings.outlineEnabled && anchorVisible;
-    if (componentOutline) componentOutline.visible = !!viewSettings.outlineEnabled && anchorVisible;
-    // Selection outline should stay visible while a component is selected, regardless of outline toggle.
+    // Selection outline stays visible while a component is selected.
     if (selectionOutline) selectionOutline.visible = !!selectedMesh && selectedMesh.visible !== false;
 }
 
@@ -426,49 +423,12 @@ export function syncGlobalOutlineTransform(viewerState) {
 }
 
 // Toggle global outline visibility based on settings and anchor visibility.
-export function updateGlobalOutlineVisibility(viewerState) {
-    const { globalOutline, viewSettings } = viewerState;
-    if (!globalOutline) return;
-    const anchor = outlineAnchor(viewerState);
-    const anchorVisible = !!anchor && anchor.visible !== false;
-    globalOutline.visible = !!viewSettings.outlineEnabled && anchorVisible;
-}
+export function updateGlobalOutlineVisibility() {}
 
 // Build the outer outline mesh that sits around the active mesh.
 export function rebuildGlobalOutline(viewerState) {
-    const { viewSettings, globalOutline, globalOutlineMaterial, pivot, renderer, drawBufferSize } = viewerState;
+    // Remove any existing global outline and keep it disabled.
     disposeGlobalOutline(viewerState);
-    if (!viewSettings.outlineEnabled) return;
-    const anchor = outlineAnchor(viewerState);
-    if (!anchor || !anchor.geometry) return;
-
-    const threshold = Number.isFinite(viewSettings.edgeThreshold) ? viewSettings.edgeThreshold : 12;
-    const edgesGeom = new THREE.EdgesGeometry(anchor.geometry, threshold);
-
-    const posAttr = edgesGeom.getAttribute("position");
-    if (!posAttr || !posAttr.array || !posAttr.array.length) {
-        edgesGeom.dispose();
-        return;
-    }
-    const lineGeom = new LineSegmentsGeometry();
-    lineGeom.setPositions(posAttr.array);
-    edgesGeom.dispose();
-
-    viewerState.globalOutlineMaterial = new LineMaterial({
-        color: 0x111111,
-        linewidth: Math.max(1.5, getEdgeLineWidthPx(viewerState)),
-        transparent: true,
-        opacity: 0.9,
-        depthTest: true,
-    });
-    renderer.getDrawingBufferSize(drawBufferSize);
-    viewerState.globalOutlineMaterial.resolution.set(drawBufferSize.x, drawBufferSize.y);
-
-    viewerState.globalOutline = new LineSegments2(lineGeom, viewerState.globalOutlineMaterial);
-    viewerState.globalOutline.renderOrder = 9;
-    pivot.add(viewerState.globalOutline);
-    syncGlobalOutlineTransform(viewerState);
-    updateGlobalOutlineVisibility(viewerState);
 }
 
 // Clear global outline around the current mesh anchor.
@@ -527,9 +487,8 @@ export function setViewSettings(partial, viewerState) {
     }
 
     if (partial.outlineEnabled !== undefined) {
-        rebuildGlobalOutline(viewerState);
-    } else {
-        updateGlobalOutlineVisibility(viewerState);
+        // Outline feature removed; ensure any existing outline is disposed.
+        disposeGlobalOutline(viewerState);
     }
 
     applyMaterialSettings(viewerState);
@@ -552,7 +511,7 @@ export function resetViewSettings(viewerState) {
         axes: true,
         exposure: 1.9,
         ssao: false,
-        outlineEnabled: true,
+        outlineEnabled: false,
         componentMode: false,
         componentColors: false,
     }, viewerState);
