@@ -443,6 +443,8 @@ function previewIssue(index) {
         
         // Capture current selection state at preview time
         const currentSelection = selectionStore.getSelection();
+        // Note: If multiple rapid hovers occur, this intentionally overwrites the previous saved selection
+        // to ensure we always restore to the state immediately before the current preview
         previewSavedSelection = currentSelection;
         
         // If a component is selected, temporarily show all components
