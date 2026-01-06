@@ -435,14 +435,14 @@ function previewIssue(index) {
         restoreTimeout = null;
     }
     const issue = state.issues[index];
-    const currentSelection = selectionStore.getSelection();
     
     previewTimeout = setTimeout(() => {
         previewTimeout = null;
         if (!state.highlightEnabled) return;
         if (!issue) return;
         
-        // Save the current selection state before preview
+        // Capture current selection state at preview time
+        const currentSelection = selectionStore.getSelection();
         previewSavedSelection = currentSelection;
         
         // If a component is selected, temporarily show all components
@@ -466,7 +466,7 @@ function restoreSelectionHighlight() {
         // Restore component selection if it was active before preview
         if (previewSavedSelection?.type === "component") {
             const comp = selectionStore.getComponent(previewSavedSelection.id);
-            if (comp) {
+            if (comp && Array.isArray(comp.faceIndices) && comp.faceIndices.length > 0) {
                 viewer.showComponent(comp.faceIndices, { refitCamera: false });
             }
         }
