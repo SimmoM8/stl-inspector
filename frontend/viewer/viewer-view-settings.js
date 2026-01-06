@@ -38,7 +38,8 @@ export function applyMaterialSettings(viewerState) {
     const targets = [currentMesh, selectedMesh].filter(Boolean);
     for (const mesh of targets) {
         if (!mesh.material) continue;
-        const shouldUseVertexColors = !!(hasVertexColors && mesh === currentMesh);
+        // Vertex colors should ONLY be used in wireframe mode with colors enabled
+        const shouldUseVertexColors = !!(hasVertexColors && mesh === currentMesh && viewSettings.wireframe);
 
         // Vertex colors requires shader recompilation - dispose old material if flag changes
         if (mesh.material.vertexColors !== shouldUseVertexColors) {
@@ -71,15 +72,23 @@ export function applyMaterialSettings(viewerState) {
         mesh.material.needsUpdate = true;
     }
 
+    // Handle selectedMesh colors: in wireframe mode with colors enabled, apply vertex colors to isolated component
     if (selectedMesh && selectedMesh.material) {
         const hasComponent = Number.isInteger(selectedComponentIndex);
-        const targetColor = hasComponent && viewSettings.componentColors
-            ? new THREE.Color(getComponentColor(selectedComponentIndex))
-            : baseMeshColor;
-        if (targetColor) {
-            selectedMesh.material.color.copy(targetColor);
-            selectedMesh.material.vertexColors = false;
-            selectedMesh.material.needsUpdate = true;
+        
+        if (viewSettings.wireframe && viewSettings.componentColors && hasComponent) {
+            // Apply vertex colors to the selected mesh in wireframe mode
+            applySelectedMeshVertexColors(selectedMesh, selectedComponentIndex, viewerState);
+        } else if (!viewSettings.wireframe) {
+            // In non-wireframe mode, use material color instead
+            const targetColor = hasComponent && viewSettings.componentColors
+                ? new THREE.Color(getComponentColor(selectedComponentIndex))
+                : baseMeshColor;
+            if (targetColor) {
+                selectedMesh.material.color.copy(targetColor);
+                selectedMesh.material.vertexColors = false;
+                selectedMesh.material.needsUpdate = true;
+            }
         }
     }
 
@@ -99,6 +108,43 @@ export function applyMaterialSettings(viewerState) {
 
     // Selection outline stays visible while a component is selected.
     if (selectionOutline) selectionOutline.visible = !!selectedMesh && selectedMesh.visible !== false;
+}
+
+// Apply vertex colors to an isolated selected mesh in wireframe mode.
+function applySelectedMeshVertexColors(selectedMesh, componentIndex, viewerState) {
+    if (!selectedMesh || !selectedMesh.geometry) return;
+    const geom = selectedMesh.geometry;
+    const posAttr = geom.getAttribute("position");
+    const indexAttr = geom.getIndex();
+    if (!posAttr || !indexAttr) return;
+
+    const colorArray = new Float32Array(posAttr.count * 3);
+    const colorHex = getComponentColor(componentIndex);
+    const c = new THREE.Color(colorHex);
+
+    // Set all vertices to the component color
+    for (let i = 0; i < posAttr.count; i++) {
+        colorArray[i * 3 + 0] = c.r;
+        colorArray[i * 3 + 1] = c.g;
+        colorArray[i * 3 + 2] = c.b;
+    }
+
+    const colorAttr = new THREE.BufferAttribute(colorArray, 3);
+    geom.setAttribute("color", colorAttr);
+    colorAttr.needsUpdate = true;
+
+    // Update material to use vertex colors
+    if (selectedMesh.material) {
+        if (!selectedMesh.material.vertexColors) {
+            const oldMat = selectedMesh.material;
+            selectedMesh.material = new THREE.MeshBasicMaterial({
+                vertexColors: true,
+                wireframe: true,
+            });
+            oldMat.dispose();
+        }
+        selectedMesh.material.needsUpdate = true;
+    }
 }
 
 // When wireframe + componentColors are enabled, color vertices per-component on the main mesh.
@@ -504,6 +550,13 @@ export function rebuildComponentOutlines(viewerState) {
 }
 
 
+// Rebuild selection outline when view settings change (used to update colors)
+function rebuildSelectionOutlineForSettings(faceList, viewerState) {
+    const { selectedMesh } = viewerState;
+    if (!selectedMesh || !selectedMesh.geometry || !faceList) return;
+    rebuildSelectionOutline(faceList, selectedMesh.geometry, selectedMesh, viewerState);
+}
+
 // Apply view settings updates and rebuild dependent visuals.
 export function setViewSettings(partial, viewerState) {
     const { viewSettings, renderer, saoPass, currentMesh, lastFaceList } = viewerState;
@@ -536,12 +589,20 @@ export function setViewSettings(partial, viewerState) {
             rebuildComponentOverlay(currentMesh.geometry, lastFaceList, viewerState);
         }
         refreshSelectedComponentColor(viewerState);
+        // Rebuild selection outline to apply/remove component colors
+        if (viewerState.selectedMesh && lastFaceList) {
+            rebuildSelectionOutlineForSettings(lastFaceList, viewerState);
+        }
     }
 
     if (partial.wireframe !== undefined) {
         disposeOverlay(viewerState);
         if (currentMesh?.geometry && viewSettings.componentColors && !viewSettings.componentMode && !viewSettings.wireframe) {
             rebuildComponentOverlay(currentMesh.geometry, lastFaceList, viewerState);
+        }
+        // Rebuild selection outline when entering/exiting wireframe mode
+        if (viewerState.selectedMesh && lastFaceList) {
+            rebuildSelectionOutlineForSettings(lastFaceList, viewerState);
         }
     }
 
@@ -613,3 +674,4 @@ export function refreshDisplayGeometry(faceList = null, viewerState) {
 // Import functions that will be defined in other files
 import { clearHighlights } from "./viewer-highlight.js";
 import { buildGeometryFromFaceList } from "./viewer-geometry.js";
+import { rebuildSelectionOutline } from "./viewer-components.js";
