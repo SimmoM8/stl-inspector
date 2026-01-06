@@ -30,6 +30,8 @@ export function createViewer(container, initialViewSettings = {}) {
     const highlightFaceOpacity = 0.85;
     const highlightLineOpacity = 0.9;
     const highlightFadeSeconds = 0.12;
+    const gridSizeMultiplier = 10; // Grid extends 5× the bounding sphere diameter
+    const gridDivisionFactor = 0.2; // Controls grid cell density
     let sceneScale = 1;
     let desiredTarget = new THREE.Vector3(0, 0, 0);
     let desiredCameraPos = new THREE.Vector3(0, 0, 3);
@@ -353,8 +355,8 @@ export function createViewer(container, initialViewSettings = {}) {
     function updateHelperScales(geometry) {
         const r = getHelperRadius(geometry);
         axesHelper.scale.setScalar(r);
-        const gridSize = Math.max(2, r * 10);
-        const divisions = Math.round(THREE.MathUtils.clamp(gridSize / (r * 0.2), 20, 100));
+        const gridSize = Math.max(2, r * gridSizeMultiplier);
+        const divisions = Math.round(THREE.MathUtils.clamp(gridSize / (r * gridDivisionFactor), 20, 100));
         rebuildGridHelper(gridSize, divisions);
         ground.scale.setScalar(gridSize / 10);
         ground.position.y = 0;
