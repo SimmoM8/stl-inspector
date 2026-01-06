@@ -353,8 +353,8 @@ export function createViewer(container, initialViewSettings = {}) {
     function updateHelperScales(geometry) {
         const r = getHelperRadius(geometry);
         axesHelper.scale.setScalar(r);
-        const gridSize = Math.max(2, r * 4);
-        const divisions = Math.round(THREE.MathUtils.clamp(gridSize / (r * 0.1), 20, 100));
+        const gridSize = Math.max(2, r * 10);
+        const divisions = Math.round(THREE.MathUtils.clamp(gridSize / (r * 0.2), 20, 100));
         rebuildGridHelper(gridSize, divisions);
         ground.scale.setScalar(gridSize / 10);
         ground.position.y = 0;
