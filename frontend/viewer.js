@@ -200,6 +200,8 @@ export function createViewer(container, initialViewSettings = {}) {
         let displayGeom = sourceGeom.clone();
 
         if (viewSettings.cadShading) {
+            // Compute normals first to ensure proper smooth shading
+            displayGeom.computeVertexNormals();
             const creaseAngle = THREE.MathUtils.degToRad(30);
             displayGeom = BufferGeometryUtils.toCreasedNormals(displayGeom, creaseAngle);
         } else {

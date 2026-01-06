@@ -179,8 +179,7 @@ function applyComponentSelection(componentIndex) {
     if (comp) {
         viewer.clearHighlights();
         viewer.showComponent(comp.faceIndices, { refitCamera: false });
-        const offset = viewer.getMeshOffset();
-        bounds = selectionStore.getComponentBounds(comp.componentIndex, offset);
+        bounds = viewer.getCurrentBounds();
         if (bounds?.sphere || bounds?.box) {
             viewer.frameBounds(bounds.sphere || bounds.box, { animate: true });
         } else {
