@@ -78,24 +78,6 @@ export function disposeComponentOutlines(viewerState) {
 }
 
 /**
- * Clear global outline around the current mesh anchor.
- * @param {Object} viewerState - The viewer state object.
- */
-export function disposeGlobalOutline(viewerState) {
-    if (viewerState.globalOutline && viewerState.globalOutline.parent) {
-        viewerState.globalOutline.parent.remove(viewerState.globalOutline);
-    }
-    if (viewerState.globalOutline) {
-        viewerState.globalOutline.geometry.dispose();
-    }
-    if (viewerState.globalOutlineMaterial) {
-        viewerState.globalOutlineMaterial.dispose();
-    }
-    viewerState.globalOutline = null;
-    viewerState.globalOutlineMaterial = null;
-}
-
-/**
  * Create a faded ghost mesh for non-selected faces when isolating.
  * @param {Array<number>} selectedFaceList - List of selected face indices.
  * @param {Object} viewerState - The viewer state object.

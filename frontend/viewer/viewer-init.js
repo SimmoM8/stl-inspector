@@ -183,9 +183,6 @@ export function handleResize(container, viewerState) {
     if (viewerState.componentOutlineMaterial) {
         viewerState.componentOutlineMaterial.resolution.set(viewerState.drawBufferSize.x, viewerState.drawBufferSize.y);
     }
-    if (viewerState.globalOutlineMaterial) {
-        viewerState.globalOutlineMaterial.resolution.set(viewerState.drawBufferSize.x, viewerState.drawBufferSize.y);
-    }
 }
 
 /**

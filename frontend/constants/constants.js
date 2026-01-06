@@ -28,7 +28,6 @@ export const SELECTORS = {
     SMOOTH_SHADING_BTN: "#smoothShadingBtn",
     XRAY_TOGGLE: "#xrayToggle",
     WIREFRAME_TOGGLE: "#wireframeToggle",
-    OUTLINE_TOGGLE: "#outlineToggle",
     GRID_TOGGLE: "#gridToggle",
     AXES_TOGGLE: "#axesToggle",
     SSAO_TOGGLE: "#ssaoToggle",
@@ -97,7 +96,6 @@ export const DEFAULT_VIEW_SETTINGS = {
     axes: true,
     exposure: 1.9,
     ssao: false,
-    outlineEnabled: true,
     componentMode: false,
     componentColors: false,
 };

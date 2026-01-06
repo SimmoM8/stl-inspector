@@ -29,7 +29,7 @@ export function setFloorHeight(viewerState) {
 // Apply render toggles (wireframe, xray, helpers) to current mesh.
 export function applyMaterialSettings(viewerState) {
     const { currentMesh, selectedMesh, viewSettings, gridHelper, axesHelper, ground, selectedComponentIndex, baseMeshColor,
-        globalOutlineMaterial, componentOutlineMaterial, selectionOutline, selectionOutlineMaterial } = viewerState;
+        componentOutlineMaterial, selectionOutline, selectionOutlineMaterial } = viewerState;
     applyShadingMode(viewerState);
 
     const targets = [currentMesh, selectedMesh].filter(Boolean);
@@ -59,7 +59,7 @@ export function applyMaterialSettings(viewerState) {
     // In xray mode the mesh still writes depth, so outlines can get hidden.
     const outlineDepthTest = !viewSettings.xray;
     const outlineDepthWrite = !viewSettings.xray;
-    const outlineMats = [globalOutlineMaterial, componentOutlineMaterial, selectionOutlineMaterial].filter(Boolean);
+    const outlineMats = [componentOutlineMaterial, selectionOutlineMaterial].filter(Boolean);
     for (const mat of outlineMats) {
         mat.depthTest = outlineDepthTest;
         mat.depthWrite = outlineDepthWrite;
@@ -406,46 +406,6 @@ export function rebuildComponentOutlines(viewerState) {
     currentMesh.add(viewerState.componentOutline);
 }
 
-// Decide which mesh the global outline should follow.
-export function outlineAnchor(viewerState) {
-    return viewerState.selectedMesh || viewerState.currentMesh;
-}
-
-// Keep global outline aligned with its anchor mesh.
-export function syncGlobalOutlineTransform(viewerState) {
-    const { globalOutline } = viewerState;
-    if (!globalOutline) return;
-    const anchor = outlineAnchor(viewerState);
-    if (!anchor) return;
-    globalOutline.position.copy(anchor.position);
-    globalOutline.rotation.copy(anchor.rotation);
-    globalOutline.scale.copy(anchor.scale);
-}
-
-// Toggle global outline visibility based on settings and anchor visibility.
-export function updateGlobalOutlineVisibility() {}
-
-// Build the outer outline mesh that sits around the active mesh.
-export function rebuildGlobalOutline(viewerState) {
-    // Remove any existing global outline and keep it disabled.
-    disposeGlobalOutline(viewerState);
-}
-
-// Clear global outline around the current mesh anchor.
-export function disposeGlobalOutline(viewerState) {
-    const { globalOutline, globalOutlineMaterial } = viewerState;
-    if (globalOutline && globalOutline.parent) {
-        globalOutline.parent.remove(globalOutline);
-    }
-    if (globalOutline) {
-        globalOutline.geometry.dispose();
-    }
-    if (globalOutlineMaterial) {
-        globalOutlineMaterial.dispose();
-    }
-    viewerState.globalOutline = null;
-    viewerState.globalOutlineMaterial = null;
-}
 
 // Apply view settings updates and rebuild dependent visuals.
 export function setViewSettings(partial, viewerState) {
@@ -461,12 +421,8 @@ export function setViewSettings(partial, viewerState) {
     if (partial.cadShading !== undefined) {
         applyShadingMode(viewerState);
         rebuildEdges(viewerState);
-        rebuildGlobalOutline(viewerState);
     } else {
         rebuildEdges(viewerState);
-        if (partial.edgeThreshold !== undefined) {
-            rebuildGlobalOutline(viewerState);
-        }
     }
 
     if (partial.componentMode !== undefined) {
@@ -475,7 +431,6 @@ export function setViewSettings(partial, viewerState) {
             rebuildComponentOverlay(currentMesh.geometry, lastFaceList, viewerState);
         }
         rebuildComponentOutlines(viewerState);
-        updateGlobalOutlineVisibility(viewerState);
     }
 
     if (partial.componentColors !== undefined) {
@@ -484,11 +439,6 @@ export function setViewSettings(partial, viewerState) {
             rebuildComponentOverlay(currentMesh.geometry, lastFaceList, viewerState);
         }
         refreshSelectedComponentColor(viewerState);
-    }
-
-    if (partial.outlineEnabled !== undefined) {
-        // Outline feature removed; ensure any existing outline is disposed.
-        disposeGlobalOutline(viewerState);
     }
 
     applyMaterialSettings(viewerState);
@@ -511,7 +461,6 @@ export function resetViewSettings(viewerState) {
         axes: true,
         exposure: 1.9,
         ssao: false,
-        outlineEnabled: false,
         componentMode: false,
         componentColors: false,
     }, viewerState);
@@ -550,7 +499,6 @@ export function refreshDisplayGeometry(faceList = null, viewerState) {
 
     // Update visual elements
     rebuildEdges(viewerState);
-    rebuildGlobalOutline(viewerState);
     applyMaterialSettings(viewerState);
 
     // Update mappings

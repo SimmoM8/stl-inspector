@@ -247,15 +247,6 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
         viewSettingsController.saveViewSettings();
     });
 
-    // Outline toggle
-    dom.outlineToggle.addEventListener("click", () => {
-        const next = !viewer.getViewSettings().outlineEnabled;
-        viewer.setViewSettings({ outlineEnabled: next });
-        dom.outlineToggle.classList.toggle("active", next);
-        syncSelectionHighlight();
-        viewSettingsController.saveViewSettings();
-    });
-
     // Grid toggle
     dom.gridToggle.addEventListener("click", () => {
         const next = !viewer.getViewSettings().grid;

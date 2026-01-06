@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import * as BufferGeometryUtils from "https://unpkg.com/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js";
-import { applyMaterialSettings, updateSceneScale, updateShadowCameraBounds, rebuildComponentOverlay, rebuildComponentOutlines, rebuildGlobalOutline, rebuildEdges, updateHelperScales, disposeOverlay } from "./viewer-view-settings.js";
+import { applyMaterialSettings, updateSceneScale, updateShadowCameraBounds, rebuildComponentOverlay, rebuildComponentOutlines, rebuildEdges, updateHelperScales, disposeOverlay } from "./viewer-view-settings.js";
 import { discardHighlights } from "./viewer-highlight.js";
-import { disposeGhostMesh, disposeSelectedMesh, disposeSelectionOutline, disposeComponentOutlines, disposeGlobalOutline } from "./viewer-components.js";
+import { disposeGhostMesh, disposeSelectedMesh, disposeSelectionOutline, disposeComponentOutlines } from "./viewer-components.js";
 import { fitHelpersAndCamera } from "./viewer-camera.js";
 import { buildGeometryFromFaceList } from "./viewer-geometry.js";
 import { MATERIALS } from "../constants/constants.js";
@@ -55,7 +55,6 @@ export function setMeshFromApi(meshData, viewerState) {
     disposeSelectedMesh(viewerState);
     disposeSelectionOutline(viewerState);
     disposeComponentOutlines(viewerState);
-    disposeGlobalOutline(viewerState);
 
     // Convert vertices array to flat Float32Array
     viewerState.basePositions = new Float32Array(vertices.length * 3);
@@ -154,7 +153,6 @@ export function applyGeometry(faceList, refitCamera = true, viewerState) {
 
     // Update various visual elements
     rebuildEdges(viewerState);
-    rebuildGlobalOutline(viewerState);
     applyMaterialSettings(viewerState);
     updateSceneScale(displayGeom, viewerState);
     updateShadowCameraBounds(viewerState);
@@ -210,7 +208,6 @@ export function refreshDisplayGeometry(faceList = null, viewerState) {
 
     // Update visual elements
     rebuildEdges(viewerState);
-    rebuildGlobalOutline(viewerState);
     applyMaterialSettings(viewerState);
 
     // Update mappings

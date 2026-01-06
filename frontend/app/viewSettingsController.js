@@ -31,7 +31,6 @@ function createViewSettingsController({ viewer, dom, state }) {
         dom.wireframeToggle.classList.toggle("active", v.wireframe);
         dom.gridToggle.classList.toggle("active", v.grid);
         dom.axesToggle.classList.toggle("active", v.axes);
-        dom.outlineToggle.classList.toggle("active", !!v.outlineEnabled);
         dom.ssaoToggle.checked = !!v.ssao;
         dom.exposureSlider.value = v.exposure;
         if (dom.componentColorsBtn) dom.componentColorsBtn.classList.toggle("active", !!v.componentColors);

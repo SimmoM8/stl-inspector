@@ -57,7 +57,6 @@ const dom = {
     get edgeThresholdInput() { return byId("edgeThreshold"); },
     get edgeModeSelect() { return byId("edgeMode"); },
     get smoothShadingBtn() { return byId("smoothShading"); },
-    get outlineToggle() { return byId("outlineToggle"); },
     get xrayToggle() { return byId("xrayToggle"); },
     get wireframeToggle() { return byId("wireframeToggle"); },
     get gridToggle() { return byId("gridToggle"); },

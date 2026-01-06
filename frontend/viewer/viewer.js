@@ -4,8 +4,8 @@ import { setMeshFromApi, applyGeometry, setIdentityMaps } from "./viewer-mesh.js
 import {
     setViewSettings, getViewSettings, resetViewSettings, applyMaterialSettings,
     updateSceneScale, updateShadowCameraBounds, rebuildGridHelper, updateHelperScales,
-    rebuildEdges, rebuildGlobalOutline, rebuildComponentOverlay, rebuildComponentOutlines,
-    disposeOverlay, disposeComponentOutlines, disposeGlobalOutline
+    rebuildEdges, rebuildComponentOverlay, rebuildComponentOutlines,
+    disposeOverlay, disposeComponentOutlines
 } from "./viewer-view-settings.js";
 import {
     getSafeScale, getMeshOffset, getWorldBounds, getFaceBounds, applyFrameToBounds,
@@ -71,8 +71,6 @@ export function createViewer(container, initialViewSettings = {}) {
         selectionOutlineMaterial: null,
         componentOutline: null,
         componentOutlineMaterial: null,
-        globalOutline: null,
-        globalOutlineMaterial: null,
 
         // Highlighting state
         highlightMesh: null,
@@ -110,7 +108,6 @@ export function createViewer(container, initialViewSettings = {}) {
             axes: true,
             exposure: 1.9,
             ssao: false,
-            outlineEnabled: true,
             componentMode: false,
             componentColors: false,
         }
