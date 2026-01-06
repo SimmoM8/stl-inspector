@@ -426,6 +426,7 @@ function highlightIssue(issue, mode, itemIndex) {
 
 let previewTimeout = null;
 let restoreTimeout = null;
+let previewSavedSelection = null;
 
 function previewIssue(index) {
     if (previewTimeout) clearTimeout(previewTimeout);
@@ -434,10 +435,23 @@ function previewIssue(index) {
         restoreTimeout = null;
     }
     const issue = state.issues[index];
+    
     previewTimeout = setTimeout(() => {
         previewTimeout = null;
         if (!state.highlightEnabled) return;
         if (!issue) return;
+        
+        // Capture current selection state at preview time
+        const currentSelection = selectionStore.getSelection();
+        // Note: If multiple rapid hovers occur, this intentionally overwrites the previous saved selection
+        // to ensure we always restore to the state immediately before the current preview
+        previewSavedSelection = currentSelection;
+        
+        // If a component is selected, temporarily show all components
+        if (currentSelection?.type === "component") {
+            viewer.showAllComponents({ refitCamera: false });
+        }
+        
         highlightIssue(issue, "all", 0);
     }, 80);
 }
@@ -450,6 +464,16 @@ function restoreSelectionHighlight() {
     if (restoreTimeout) clearTimeout(restoreTimeout);
     restoreTimeout = setTimeout(() => {
         restoreTimeout = null;
+        
+        // Restore component selection if it was active before preview
+        if (previewSavedSelection?.type === "component") {
+            const comp = selectionStore.getComponent(previewSavedSelection.id);
+            if (comp && Array.isArray(comp.faceIndices) && comp.faceIndices.length > 0) {
+                viewer.showComponent(comp.faceIndices, { refitCamera: false });
+            }
+        }
+        previewSavedSelection = null;
+        
         if (!state.highlightEnabled) {
             viewer.clearHighlights();
             return;
