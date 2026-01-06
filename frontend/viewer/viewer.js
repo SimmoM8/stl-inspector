@@ -55,6 +55,7 @@ export function createViewer(container, initialViewSettings = {}) {
         basePositions: null, // Float32Array
         baseIndices: null,   // Uint32Array
         baseFaceCount: 0,
+        baseNormals: null,   // Float32Array of vertex normals for full mesh
         faceIndexMap: null,   // Map original face index -> current face index (or null for identity)
         vertexIndexMap: null, // Map original vertex index -> current vertex index (or null for identity)
         lastFaceList: null, // remember last applied component for settings refresh
@@ -65,6 +66,7 @@ export function createViewer(container, initialViewSettings = {}) {
         overlayMesh: null,
         ghostMesh: null,
         selectedMesh: null,
+        selectedComponentIndex: null,
         selectionOutline: null,
         selectionOutlineMaterial: null,
         componentOutline: null,
@@ -106,13 +108,13 @@ export function createViewer(container, initialViewSettings = {}) {
             xray: false,
             grid: true,
             axes: true,
-        exposure: 1.9,
-        ssao: false,
-        outlineEnabled: true,
-        componentMode: false,
-        componentColors: false,
-    }
-};
+            exposure: 1.9,
+            ssao: false,
+            outlineEnabled: true,
+            componentMode: false,
+            componentColors: false,
+        }
+    };
 
     // Apply initial view settings
     Object.assign(viewerState.viewSettings, initialViewSettings);
@@ -166,6 +168,7 @@ export function createViewer(container, initialViewSettings = {}) {
         setViewSettings: (partial) => setViewSettings(partial, viewerState),
         getViewSettings: () => getViewSettings(viewerState),
         getSceneScale: () => viewerState.sceneScale,
+        getModelScale: () => viewerState.modelScale ?? 1,
         resetViewSettings: () => resetViewSettings(viewerState),
         centerView: () => centerView(viewerState),
         frameBounds: (boundsOrSphere, options) => frameBounds(boundsOrSphere, options, viewerState),

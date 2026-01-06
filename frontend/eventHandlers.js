@@ -60,7 +60,7 @@ export function setupEventHandlers(state, viewer, selectionStore, dom, issueButt
             state.itemIndex = 0;
             state.mode = "step";
             state.components = componentsController.computeComponents(data.mesh);
-            selectionStore.setMesh(data.mesh);
+            selectionStore.setMesh(data.mesh, viewer.getModelScale());
             selectionStore.setComponents(state.components);
             state.componentVisibility = { ghosted: new Set() };
             componentsController.updateComponentOverlays();

@@ -141,11 +141,11 @@ function createComponentsController({ state, viewer, selectionStore, onChange = 
                 return;
             }
             viewer.clearHighlights(); // Clear any issue highlights
-            viewer.showComponent(comp.faceIndices, { refitCamera: false });
+            viewer.showComponent(comp.faceIndices, { refitCamera: false, componentIndex: comp.componentIndex });
             const offset = viewer.getMeshOffset();
             const bounds = selectionStore.getComponentBounds(comp.componentIndex, offset);
             if (bounds?.sphere || bounds?.box) {
-                viewer.frameBounds(bounds.sphere || bounds.box, { animate: true });
+                viewer.frameBounds(bounds.sphere || bounds.box, { animate: true, keepDirection: true });
             } else {
                 viewer.frameView();
             }

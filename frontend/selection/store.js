@@ -100,8 +100,19 @@ function createSelectionStore() {
     }
 
     // Store the mesh data used for bounds calculations.
-    function setMesh(meshData) {
-        mesh = meshData || null;
+    function setMesh(meshData, scale = 1) {
+        if (!meshData) {
+            mesh = null;
+            return;
+        }
+
+        // Store a scaled copy so bounds match the viewer's normalized size.
+        const verts = Array.isArray(meshData.vertices)
+            ? meshData.vertices.map((v) => [v[0] * scale, v[1] * scale, v[2] * scale])
+            : [];
+        const faces = Array.isArray(meshData.faces) ? meshData.faces.map((f) => [...f]) : [];
+
+        mesh = { vertices: verts, faces };
     }
 
     // Replace the component list and drop invalid selection.

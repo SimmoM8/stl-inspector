@@ -5,6 +5,7 @@ import { LineGeometry } from "https://unpkg.com/three@0.160.0/examples/jsm/lines
 import { LineSegments2 } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineSegmentsGeometry.js";
 import { getComponentColor } from "../components/colors.js";
+import { refreshSelectedComponentColor } from "./viewer-components.js";
 
 // Compute world-space floor (mesh minY after translation). This should be ~0 when the mesh is seated on the grid.
 function getFloorY(viewerState) {
@@ -27,13 +28,28 @@ export function setFloorHeight(viewerState) {
 
 // Apply render toggles (wireframe, xray, helpers) to current mesh.
 export function applyMaterialSettings(viewerState) {
-    const { currentMesh, selectedMesh, viewSettings, gridHelper, axesHelper, ground } = viewerState;
+    const { currentMesh, selectedMesh, viewSettings, gridHelper, axesHelper, ground, selectedComponentIndex, baseMeshColor } = viewerState;
     applyShadingMode(viewerState);
-    if (!currentMesh) return;
-    currentMesh.material.wireframe = viewSettings.wireframe;
-    currentMesh.material.transparent = viewSettings.xray;
-    currentMesh.material.opacity = viewSettings.xray ? 0.4 : 1.0;
-    currentMesh.material.needsUpdate = true;
+
+    const targets = [currentMesh, selectedMesh].filter(Boolean);
+    for (const mesh of targets) {
+        if (!mesh.material) continue;
+        mesh.material.wireframe = viewSettings.wireframe;
+        mesh.material.transparent = viewSettings.xray;
+        mesh.material.opacity = viewSettings.xray ? 0.4 : 1.0;
+        mesh.material.needsUpdate = true;
+    }
+
+    if (selectedMesh && selectedMesh.material) {
+        const hasComponent = Number.isInteger(selectedComponentIndex);
+        const targetColor = hasComponent && viewSettings.componentColors
+            ? new THREE.Color(getComponentColor(selectedComponentIndex))
+            : baseMeshColor;
+        if (targetColor) {
+            selectedMesh.material.color.copy(targetColor);
+            selectedMesh.material.needsUpdate = true;
+        }
+    }
 
     gridHelper.visible = viewSettings.grid;
     axesHelper.visible = viewSettings.axes;
@@ -490,6 +506,7 @@ export function setViewSettings(partial, viewerState) {
         if (currentMesh?.geometry && viewSettings.componentColors && !viewSettings.componentMode) {
             rebuildComponentOverlay(currentMesh.geometry, lastFaceList, viewerState);
         }
+        refreshSelectedComponentColor(viewerState);
     }
 
     if (partial.outlineEnabled !== undefined) {

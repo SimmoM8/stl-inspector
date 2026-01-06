@@ -5,8 +5,9 @@ import { LineSegments2 } from "https://unpkg.com/three@0.160.0/examples/jsm/line
 import { LineSegmentsGeometry } from "https://unpkg.com/three@0.160.0/examples/jsm/lines/LineSegmentsGeometry.js";
 import { buildGeometryFromFaceList } from "./viewer-geometry.js";
 import { getFaceBounds, getWorldBounds, applyFrameToBounds } from "./viewer-camera.js";
-import { getEdgeLineWidthPx, rebuildComponentOverlay, disposeOverlay } from "./viewer-view-settings.js";
+import { getEdgeLineWidthPx, rebuildComponentOverlay, disposeOverlay, applyMaterialSettings } from "./viewer-view-settings.js";
 import { MATERIALS } from "../constants/constants.js";
+import { getComponentColor } from "../components/colors.js";
 
 /**
  * Remove ghost mesh that hides non-selected faces.
@@ -113,6 +114,7 @@ export function rebuildGhostMesh(selectedFaceList, viewerState) {
 
     // Build non-indexed geometry for remaining faces
     const positions = new Float32Array(remainingFaces.length * 9);
+    const normals = viewerState.baseNormals ? new Float32Array(remainingFaces.length * 9) : null;
     for (let i = 0; i < remainingFaces.length; i++) {
         const faceIndex = remainingFaces[i];
         const i0 = viewerState.baseIndices[faceIndex * 3 + 0];
@@ -128,11 +130,27 @@ export function rebuildGhostMesh(selectedFaceList, viewerState) {
         positions[o + 6] = viewerState.basePositions[i2 * 3 + 0];
         positions[o + 7] = viewerState.basePositions[i2 * 3 + 1];
         positions[o + 8] = viewerState.basePositions[i2 * 3 + 2];
+
+        if (normals) {
+            normals[o + 0] = viewerState.baseNormals[i0 * 3 + 0];
+            normals[o + 1] = viewerState.baseNormals[i0 * 3 + 1];
+            normals[o + 2] = viewerState.baseNormals[i0 * 3 + 2];
+            normals[o + 3] = viewerState.baseNormals[i1 * 3 + 0];
+            normals[o + 4] = viewerState.baseNormals[i1 * 3 + 1];
+            normals[o + 5] = viewerState.baseNormals[i1 * 3 + 2];
+            normals[o + 6] = viewerState.baseNormals[i2 * 3 + 0];
+            normals[o + 7] = viewerState.baseNormals[i2 * 3 + 1];
+            normals[o + 8] = viewerState.baseNormals[i2 * 3 + 2];
+        }
     }
 
     const geom = new THREE.BufferGeometry();
     geom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    geom.computeVertexNormals();
+    if (normals) {
+        geom.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
+    } else {
+        geom.computeVertexNormals();
+    }
 
     const mat = new THREE.MeshStandardMaterial({
         color: 0x6b7280,
@@ -193,9 +211,10 @@ export function rebuildSelectionOutline(selectedFaceList, displayGeom, targetMes
  * @param {Array<number>} faceIndices - Array of face indices to focus on.
  * @param {Object} viewerState - The viewer state object.
  */
-export function focusComponentFaces(faceIndices, viewerState) {
+export function focusComponentFaces(faceIndices, viewerState, options = {}) {
     if (!viewerState.basePositions || !viewerState.baseIndices) return;
     if (!faceIndices || !faceIndices.length) return;
+    const { componentIndex } = options;
 
     // TODO: hideBaseMeshesAndLines
     disposeGhostMesh(viewerState);
@@ -208,10 +227,17 @@ export function focusComponentFaces(faceIndices, viewerState) {
 
     rebuildGhostMesh(faceIndices, viewerState);
     const { sourceGeom, displayGeom } = buildGeometryFromFaceList(faceIndices, viewerState);
+    viewerState.selectedComponentIndex = Number.isInteger(componentIndex) ? componentIndex : null;
+    const componentColor = Number.isInteger(componentIndex) && viewerState.viewSettings.componentColors
+        ? new THREE.Color(getComponentColor(componentIndex))
+        : viewerState.baseMeshColor;
+    const emissive = componentColor ? componentColor.clone().multiplyScalar(0.35) : new THREE.Color(0x000000);
     const material = new THREE.MeshStandardMaterial({
         metalness: MATERIALS.METALNESS,
         roughness: MATERIALS.ROUGHNESS,
-        color: viewerState.baseMeshColor,
+        color: componentColor,
+        emissive,
+        emissiveIntensity: 1.0,
     });
     viewerState.selectedMesh = new THREE.Mesh(displayGeom, material);
     viewerState.selectedMesh.castShadow = true;
@@ -236,6 +262,7 @@ export function clearComponentFocus(viewerState) {
     disposeGhostMesh(viewerState);
     disposeSelectionOutline(viewerState);
     disposeSelectedMesh(viewerState);
+    viewerState.selectedComponentIndex = null;
     // TODO: showBaseMeshesAndLines
     // TODO: rebuildComponentOutlines, rebuildGlobalOutline, rebuildEdges
     if (viewerState.currentMesh) {
@@ -250,16 +277,18 @@ export function clearComponentFocus(viewerState) {
  * @param {Object} viewerState - The viewer state object.
  */
 export function showComponent(faceIndices, options = {}, viewerState) {
-    const { refitCamera = true } = options;
+    const { refitCamera = true, componentIndex = null } = options;
     if (!viewerState.basePositions || !viewerState.baseIndices) return;
     if (faceIndices && faceIndices.length) {
-        focusComponentFaces(faceIndices, viewerState);
+        focusComponentFaces(faceIndices, viewerState, { componentIndex });
+        applyMaterialSettings(viewerState);
         const bounds = getFaceBounds(faceIndices, viewerState);
         if (refitCamera && bounds && (bounds.box || bounds.sphere)) {
             applyFrameToBounds(bounds.sphere || bounds.box, { animate: true }, viewerState);
         }
     } else {
         clearComponentFocus(viewerState);
+        applyMaterialSettings(viewerState);
     }
 }
 
@@ -271,6 +300,7 @@ export function showComponent(faceIndices, options = {}, viewerState) {
 export function showAllComponents(options = {}, viewerState) {
     const { refitCamera = true } = options;
     clearComponentFocus(viewerState);
+    applyMaterialSettings(viewerState);
     if (refitCamera && viewerState.currentMesh?.geometry) {
         const bounds = getWorldBounds(viewerState.currentMesh.geometry, viewerState);
         if (bounds) {
@@ -278,6 +308,20 @@ export function showAllComponents(options = {}, viewerState) {
         }
     }
     // TODO: rebuildComponentOutlines, rebuildGlobalOutline, rebuildEdges
+}
+
+// Reapply component color to selected mesh when toggles change.
+export function refreshSelectedComponentColor(viewerState) {
+    const { selectedMesh, selectedComponentIndex, viewSettings, baseMeshColor } = viewerState;
+    if (!selectedMesh || !selectedMesh.material) return;
+    const color = Number.isInteger(selectedComponentIndex) && viewSettings.componentColors
+        ? new THREE.Color(getComponentColor(selectedComponentIndex))
+        : baseMeshColor;
+    selectedMesh.material.color.copy(color);
+    const emissive = color ? color.clone().multiplyScalar(viewSettings.componentColors ? 0.35 : 0.0) : new THREE.Color(0x000000);
+    selectedMesh.material.emissive.copy(emissive);
+    selectedMesh.material.emissiveIntensity = 1.0;
+    selectedMesh.material.needsUpdate = true;
 }
 
 /**

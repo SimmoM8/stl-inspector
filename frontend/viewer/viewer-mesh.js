@@ -65,6 +65,15 @@ export function setMeshFromApi(meshData, viewerState) {
         viewerState.basePositions[i * 3 + 2] = vertices[i][2] * scale;
     }
 
+    // Precompute base vertex normals for the full mesh so isolated components keep smooth shading.
+    const tempGeom = new THREE.BufferGeometry();
+    tempGeom.setAttribute("position", new THREE.BufferAttribute(viewerState.basePositions, 3));
+    tempGeom.setIndex(new THREE.BufferAttribute(new Uint32Array(faces.flat()), 1));
+    tempGeom.computeVertexNormals();
+    const normalsAttr = tempGeom.getAttribute("normal");
+    viewerState.baseNormals = normalsAttr ? new Float32Array(normalsAttr.array) : null;
+    tempGeom.dispose();
+
     // Convert faces array to flat Uint32Array of indices
     viewerState.baseIndices = new Uint32Array(faces.length * 3);
     for (let i = 0; i < faces.length; i++) {

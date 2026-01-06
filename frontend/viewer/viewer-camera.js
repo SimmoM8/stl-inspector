@@ -83,7 +83,7 @@ export function getFaceBounds(faceIndices, viewerState) {
  * @returns {Object|null} The frame result or null if failed.
  */
 export function applyFrameToBounds(boundsOrSphere, options = {}, viewerState) {
-    const { animate = false } = options;
+    const { animate = false, keepDirection = false } = options;
     const frame = viewerState.frameTarget(boundsOrSphere, { apply: false });
     if (!frame) return null;
 
@@ -96,16 +96,26 @@ export function applyFrameToBounds(boundsOrSphere, options = {}, viewerState) {
     viewerState.camera.far = frame.far;
     viewerState.camera.updateProjectionMatrix();
 
+    // Optionally preserve current view direction while fitting distance/target.
+    let nextPos = frame.position;
+    if (keepDirection) {
+        const dir = viewerState.camera.position.clone().sub(viewerState.controls.target);
+        if (dir.lengthSq() < 1e-8) dir.set(0, 0, 1);
+        dir.normalize();
+        const dist = frame.distance ?? dir.length();
+        nextPos = frame.target.clone().add(dir.multiplyScalar(dist));
+    }
+
     if (animate) {
         viewerState.desiredTarget.copy(frame.target);
-        viewerState.desiredCameraPos.copy(frame.position);
+        viewerState.desiredCameraPos.copy(nextPos);
         viewerState.animatingFocus = true;
     } else {
         viewerState.animatingFocus = false;
         viewerState.controls.target.copy(frame.target);
-        viewerState.camera.position.copy(frame.position);
+        viewerState.camera.position.copy(nextPos);
         viewerState.desiredTarget.copy(frame.target);
-        viewerState.desiredCameraPos.copy(frame.position);
+        viewerState.desiredCameraPos.copy(nextPos);
         viewerState.controls.update();
     }
     return frame;

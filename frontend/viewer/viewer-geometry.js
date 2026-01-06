@@ -8,7 +8,7 @@ import * as THREE from "three";
  * @returns {Object} Object containing sourceGeom, displayGeom, faceMap, and vertexMap.
  */
 export function buildGeometryFromFaceList(faceList, viewerState) {
-    const { basePositions, baseIndices, baseFaceCount } = viewerState;
+    const { basePositions, baseIndices, baseFaceCount, baseNormals } = viewerState;
     const useFaces = faceList && faceList.length ? faceList : [...Array(baseFaceCount).keys()];
     const positions = [];
     const remappedIndices = new Uint32Array(useFaces.length * 3);
@@ -43,12 +43,26 @@ export function buildGeometryFromFaceList(faceList, viewerState) {
     // Stable, indexed geometry that matches our remapped vertex indices.
     // IMPORTANT: highlights and focus calculations should use this geometry so indices stay consistent.
     const sourceGeom = new THREE.BufferGeometry();
-    sourceGeom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
+    const positionAttr = new THREE.BufferAttribute(new Float32Array(positions), 3);
+    sourceGeom.setAttribute("position", positionAttr);
     sourceGeom.setIndex(new THREE.BufferAttribute(remappedIndices, 1));
 
-    // Display geometry mirrors source geometry; normals are always recomputed smoothly.
+    // If we have precomputed normals, remap them too for smooth shading on subsets.
+    if (baseNormals) {
+        const normalArray = new Float32Array(vMap.size * 3);
+        for (const [orig, mapped] of vMap.entries()) {
+            normalArray[mapped * 3 + 0] = baseNormals[orig * 3 + 0];
+            normalArray[mapped * 3 + 1] = baseNormals[orig * 3 + 1];
+            normalArray[mapped * 3 + 2] = baseNormals[orig * 3 + 2];
+        }
+        sourceGeom.setAttribute("normal", new THREE.BufferAttribute(normalArray, 3));
+    }
+
+    // Display geometry mirrors source geometry; reuse normals if present else compute.
     const displayGeom = sourceGeom.clone();
-    displayGeom.computeVertexNormals();
+    if (!displayGeom.getAttribute("normal")) {
+        displayGeom.computeVertexNormals();
+    }
 
     // Compute bounds for BOTH geometries
     sourceGeom.computeBoundingBox();
