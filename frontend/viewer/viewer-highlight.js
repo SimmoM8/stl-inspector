@@ -79,42 +79,37 @@ export function mapEdgePairs(edgePairs, viewerState) {
     return out;
 }
 
-// Draw translucent faces for provided indices.
+// Draw translucent faces for provided indices against the ORIGINAL mesh geometry (no subset remapping).
 export function highlightFaces(faceIndices, viewerState) {
-    const { currentMesh, sourceGeometry, highlightFaceOpacity } = viewerState;
+    const { currentMesh, highlightFaceOpacity, basePositions, baseIndices, baseFaceCount } = viewerState;
     if (!currentMesh) return;
-    if (!sourceGeometry) return;
-    const mappedFaces = mapFaceList(faceIndices, viewerState);
-    if (!mappedFaces.length) return;
+    if (!basePositions || !baseIndices) return;
+    if (!Array.isArray(faceIndices) || !faceIndices.length) return;
 
-    const baseGeom = sourceGeometry;
-    const posAttr = baseGeom.getAttribute("position");
-    const indexAttr = baseGeom.getIndex();
+    const clamped = faceIndices.filter((f) => Number.isInteger(f) && f >= 0 && f < baseFaceCount);
+    if (!clamped.length) return;
 
-    // Build a NEW geometry containing ONLY the highlighted triangles
-    const highlightGeometry = new THREE.BufferGeometry();
-
-    // We'll create non-indexed triangles for simplicity:
-    // each face contributes 3 vertices = 9 floats
-    const outPositions = new Float32Array(mappedFaces.length * 9);
-
-    for (let i = 0; i < mappedFaces.length; i++) {
-        const faceIndex = mappedFaces[i];
-
-        const i0 = indexAttr.getX(faceIndex * 3 + 0);
-        const i1 = indexAttr.getX(faceIndex * 3 + 1);
-        const i2 = indexAttr.getX(faceIndex * 3 + 2);
-
-        const v0x = posAttr.getX(i0), v0y = posAttr.getY(i0), v0z = posAttr.getZ(i0);
-        const v1x = posAttr.getX(i1), v1y = posAttr.getY(i1), v1z = posAttr.getZ(i1);
-        const v2x = posAttr.getX(i2), v2y = posAttr.getY(i2), v2z = posAttr.getZ(i2);
+    // Build non-indexed triangles directly from base geometry so all issue faces render, even if a subset mesh is active.
+    const outPositions = new Float32Array(clamped.length * 9);
+    for (let i = 0; i < clamped.length; i++) {
+        const faceIndex = clamped[i];
+        const i0 = baseIndices[faceIndex * 3 + 0];
+        const i1 = baseIndices[faceIndex * 3 + 1];
+        const i2 = baseIndices[faceIndex * 3 + 2];
 
         const o = i * 9;
-        outPositions[o + 0] = v0x; outPositions[o + 1] = v0y; outPositions[o + 2] = v0z;
-        outPositions[o + 3] = v1x; outPositions[o + 4] = v1y; outPositions[o + 5] = v1z;
-        outPositions[o + 6] = v2x; outPositions[o + 7] = v2y; outPositions[o + 8] = v2z;
+        outPositions[o + 0] = basePositions[i0 * 3 + 0];
+        outPositions[o + 1] = basePositions[i0 * 3 + 1];
+        outPositions[o + 2] = basePositions[i0 * 3 + 2];
+        outPositions[o + 3] = basePositions[i1 * 3 + 0];
+        outPositions[o + 4] = basePositions[i1 * 3 + 1];
+        outPositions[o + 5] = basePositions[i1 * 3 + 2];
+        outPositions[o + 6] = basePositions[i2 * 3 + 0];
+        outPositions[o + 7] = basePositions[i2 * 3 + 1];
+        outPositions[o + 8] = basePositions[i2 * 3 + 2];
     }
 
+    const highlightGeometry = new THREE.BufferGeometry();
     highlightGeometry.setAttribute("position", new THREE.BufferAttribute(outPositions, 3));
     highlightGeometry.computeVertexNormals();
 
@@ -133,31 +128,31 @@ export function highlightFaces(faceIndices, viewerState) {
     viewerState.pendingHighlightClear = false;
 }
 
-// Draw overlay line segments for provided edge pairs.
+// Draw overlay line segments for provided edge pairs against the ORIGINAL mesh geometry (no subset remapping).
 export function highlightEdgePairs(edgePairs, viewerState) {
-    const { currentMesh, sourceGeometry, renderer, drawBufferSize, highlightLineOpacity } = viewerState;
+    const { currentMesh, renderer, drawBufferSize, basePositions, highlightLineOpacity } = viewerState;
     if (!currentMesh) return;
-    if (!sourceGeometry) return;
-    const mappedEdges = mapEdgePairs(edgePairs, viewerState);
-    if (!mappedEdges.length) return;
+    if (!basePositions) return;
+    if (!Array.isArray(edgePairs) || !edgePairs.length) return;
 
-    const baseGeom = sourceGeometry;
-    const posAttr = baseGeom.getAttribute("position");
+    const valid = edgePairs.filter((e) => Array.isArray(e) && e.length === 2 && Number.isFinite(e[0]) && Number.isFinite(e[1]));
+    if (!valid.length) return;
 
-    // Flatten into [x1,y1,z1, x2,y2,z2, ...]
-    const positions = new Float32Array(mappedEdges.length * 6);
+    const positions = new Float32Array(valid.length * 6);
 
-    for (let i = 0; i < mappedEdges.length; i++) {
-        const [a, b] = mappedEdges[i];
+    for (let i = 0; i < valid.length; i++) {
+        const [a, b] = valid[i];
+        const ia = a | 0;
+        const ib = b | 0;
 
         const o = i * 6;
-        positions[o + 0] = posAttr.getX(a);
-        positions[o + 1] = posAttr.getY(a);
-        positions[o + 2] = posAttr.getZ(a);
+        positions[o + 0] = basePositions[ia * 3 + 0];
+        positions[o + 1] = basePositions[ia * 3 + 1];
+        positions[o + 2] = basePositions[ia * 3 + 2];
 
-        positions[o + 3] = posAttr.getX(b);
-        positions[o + 4] = posAttr.getY(b);
-        positions[o + 5] = posAttr.getZ(b);
+        positions[o + 3] = basePositions[ib * 3 + 0];
+        positions[o + 4] = basePositions[ib * 3 + 1];
+        positions[o + 5] = basePositions[ib * 3 + 2];
     }
 
     const geom = new LineGeometry();
@@ -186,37 +181,52 @@ export function highlightEdgePairs(edgePairs, viewerState) {
 
 // Compute world-space centroid for a face index.
 export function faceCentroid(faceIndex, viewerState) {
-    const { sourceGeometry, currentMesh } = viewerState;
-    const baseGeom = sourceGeometry || currentMesh.geometry;
-    const posAttr = baseGeom.getAttribute("position");
-    const indexAttr = baseGeom.getIndex();
+    const { currentMesh, basePositions, baseIndices, baseFaceCount } = viewerState;
+    if (!currentMesh || !basePositions || !baseIndices) return new THREE.Vector3();
+    if (faceIndex < 0 || faceIndex >= baseFaceCount) return new THREE.Vector3();
 
-    const i0 = indexAttr.getX(faceIndex * 3 + 0);
-    const i1 = indexAttr.getX(faceIndex * 3 + 1);
-    const i2 = indexAttr.getX(faceIndex * 3 + 2);
+    const i0 = baseIndices[faceIndex * 3 + 0];
+    const i1 = baseIndices[faceIndex * 3 + 1];
+    const i2 = baseIndices[faceIndex * 3 + 2];
 
-    const v0 = new THREE.Vector3(posAttr.getX(i0), posAttr.getY(i0), posAttr.getZ(i0));
-    const v1 = new THREE.Vector3(posAttr.getX(i1), posAttr.getY(i1), posAttr.getZ(i1));
-    const v2 = new THREE.Vector3(posAttr.getX(i2), posAttr.getY(i2), posAttr.getZ(i2));
+    const v0 = new THREE.Vector3(
+        basePositions[i0 * 3 + 0],
+        basePositions[i0 * 3 + 1],
+        basePositions[i0 * 3 + 2]
+    );
+    const v1 = new THREE.Vector3(
+        basePositions[i1 * 3 + 0],
+        basePositions[i1 * 3 + 1],
+        basePositions[i1 * 3 + 2]
+    );
+    const v2 = new THREE.Vector3(
+        basePositions[i2 * 3 + 0],
+        basePositions[i2 * 3 + 1],
+        basePositions[i2 * 3 + 2]
+    );
 
-    // Centroid = average of the 3 vertices
-    const centroid = new THREE.Vector3();
-    centroid.add(v0).add(v1).add(v2).multiplyScalar(1 / 3);
-
+    const centroid = new THREE.Vector3().add(v0).add(v1).add(v2).multiplyScalar(1 / 3);
     return currentMesh.localToWorld(centroid);
 }
 
 // Compute world-space midpoint for an edge pair.
 export function edgeMidpoint(edgePair, viewerState) {
-    const { sourceGeometry, currentMesh } = viewerState;
-    const baseGeom = sourceGeometry || currentMesh.geometry;
-    const posAttr = baseGeom.getAttribute("position");
-    const [a, b] = edgePair;
+    const { currentMesh, basePositions } = viewerState;
+    if (!currentMesh || !basePositions) return new THREE.Vector3();
+    const [a, b] = edgePair || [];
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return new THREE.Vector3();
 
-    const va = new THREE.Vector3(posAttr.getX(a), posAttr.getY(a), posAttr.getZ(a));
-    const vb = new THREE.Vector3(posAttr.getX(b), posAttr.getY(b), posAttr.getZ(b));
+    const va = new THREE.Vector3(
+        basePositions[a * 3 + 0],
+        basePositions[a * 3 + 1],
+        basePositions[a * 3 + 2]
+    );
+    const vb = new THREE.Vector3(
+        basePositions[b * 3 + 0],
+        basePositions[b * 3 + 1],
+        basePositions[b * 3 + 2]
+    );
 
-    // Midpoint of the two vertices
     const mid = new THREE.Vector3().addVectors(va, vb).multiplyScalar(0.5);
     return currentMesh.localToWorld(mid);
 }

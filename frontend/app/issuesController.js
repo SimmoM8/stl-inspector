@@ -192,12 +192,8 @@ function createIssuesController({
             previewTimeout = null;
             if (!state.highlightEnabled) return;
             if (!issue) return;
-            const { kind, items } = getIssueItems(issue);
-            if ((kind === "face" || kind === "edge") && items.length) {
-                viewer.showIssueItem(issue, 0, { focusCamera: false });
-            } else {
-                viewer.showIssueAll(issue);
-            }
+            // On hover, always preview all items for the issue (no camera move).
+            viewer.showIssueAll(issue);
         }, PREVIEW_DELAY);
     }
 
